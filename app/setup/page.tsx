@@ -10,7 +10,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Sparkles, Globe, Building, ArrowRight, Check, Pencil, X } from 'lucide-react';
+import { Loader2, Sparkles, Globe, Building, ArrowRight, Check, Pencil, X, Circle, FileText, Search, Brain } from 'lucide-react';
+import type { CrawlStats } from '@/lib/types';
 
 type Step = 'input' | 'analyzing' | 'review' | 'creating';
 
@@ -19,8 +20,10 @@ interface BrandBible {
   tracked_brand: string;
   website_url: string;
   industry: string;
+  sub_industry?: string;
   description: string;
   target_audience: string;
+  secondary_audiences?: string[];
   brand_voice: string;
   tone_guidelines: string;
   key_differentiators: string[];
@@ -28,8 +31,13 @@ interface BrandBible {
   important_keywords: string[];
   content_pillars: string[];
   unique_selling_points: string[];
+  products_services?: string[];
+  pricing_model?: string;
   avoid_topics: string[];
   competitors: string[];
+  brand_personality_traits?: string[];
+  customer_pain_points?: string[];
+  proof_points?: string[];
 }
 
 export default function SetupPage() {
@@ -41,6 +49,7 @@ export default function SetupPage() {
   const [brandName, setBrandName] = useState('');
   const [websiteUrl, setWebsiteUrl] = useState('');
   const [brandBible, setBrandBible] = useState<BrandBible | null>(null);
+  const [crawlStats, setCrawlStats] = useState<CrawlStats | null>(null);
   const [editingField, setEditingField] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -62,6 +71,7 @@ export default function SetupPage() {
         websiteUrl: normalizedUrl,
       });
       setBrandBible(result.brandBible);
+      setCrawlStats(result.crawlStats || null);
       setStep('review');
     } catch (err) {
       console.error('Analysis failed:', err);
@@ -191,7 +201,7 @@ export default function SetupPage() {
             </Button>
 
             <p className="text-xs text-center text-muted-foreground">
-              We'll analyze your website to automatically generate your Brand Bible
+              We'll crawl your entire website to automatically generate your Brand Bible
             </p>
           </CardContent>
         </Card>
@@ -199,22 +209,42 @@ export default function SetupPage() {
     );
   }
 
-  // Step 2: Analyzing
+  // Step 2: Analyzing (with deep crawl progress)
   if (step === 'analyzing') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
         <Card className="w-full max-w-lg">
           <CardContent className="py-12 text-center">
             <Loader2 className="h-12 w-12 animate-spin mx-auto mb-6 text-primary" />
-            <h2 className="text-xl font-semibold mb-2">Analyzing {brandName}</h2>
-            <p className="text-muted-foreground mb-4">
-              We're crawling your website and using AI to generate your Brand Bible...
+            <h2 className="text-xl font-semibold mb-2">Deep Crawling {brandName}</h2>
+            <p className="text-muted-foreground mb-6">
+              Analyzing your entire website to understand every aspect of your business...
             </p>
-            <div className="space-y-2 text-sm text-muted-foreground">
-              <p>✓ Fetching website content</p>
-              <p>✓ Analyzing brand messaging</p>
-              <p className="animate-pulse">→ Generating Brand Bible...</p>
+            <div className="space-y-3 text-sm text-left max-w-xs mx-auto">
+              <div className="flex items-center gap-2">
+                <Check className="h-4 w-4 text-green-500" />
+                <span>Checking for sitemap</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Check className="h-4 w-4 text-green-500" />
+                <span>Discovering pages</span>
+              </div>
+              <div className="flex items-center gap-2 animate-pulse">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                <span>Crawling content (up to 50 pages)...</span>
+              </div>
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Circle className="h-4 w-4" />
+                <span>Extracting brand information</span>
+              </div>
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Circle className="h-4 w-4" />
+                <span>Generating Brand Bible</span>
+              </div>
             </div>
+            <p className="text-xs text-muted-foreground mt-6">
+              This may take 30-60 seconds depending on site size
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -231,6 +261,35 @@ export default function SetupPage() {
             <p className="text-muted-foreground">
               We've analyzed {websiteUrl} and generated your Brand Bible. Review and edit as needed.
             </p>
+
+            {/* Crawl Stats */}
+            {crawlStats && (
+              <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground mt-4">
+                <span className="flex items-center gap-1">
+                  <FileText className="h-4 w-4" />
+                  {crawlStats.pagesCrawled} pages analyzed
+                </span>
+                <span>•</span>
+                <span className="flex items-center gap-1">
+                  {crawlStats.sitemapFound ? (
+                    <>
+                      <Check className="h-4 w-4 text-green-500" />
+                      Sitemap found
+                    </>
+                  ) : (
+                    <>
+                      <Search className="h-4 w-4" />
+                      Link discovery
+                    </>
+                  )}
+                </span>
+                <span>•</span>
+                <span className="flex items-center gap-1">
+                  <Brain className="h-4 w-4" />
+                  {(crawlStats.duration / 1000).toFixed(1)}s
+                </span>
+              </div>
+            )}
           </div>
 
           {error && (
@@ -261,6 +320,15 @@ export default function SetupPage() {
                   />
                 </div>
               </div>
+              {brandBible.sub_industry && (
+                <div className="space-y-2">
+                  <Label>Sub-Industry</Label>
+                  <Input
+                    value={brandBible.sub_industry}
+                    onChange={(e) => updateField('sub_industry', e.target.value)}
+                  />
+                </div>
+              )}
               <div className="space-y-2">
                 <Label>Description</Label>
                 <Textarea
@@ -269,8 +337,29 @@ export default function SetupPage() {
                   rows={3}
                 />
               </div>
+              {brandBible.pricing_model && (
+                <div className="space-y-2">
+                  <Label>Pricing Model</Label>
+                  <Input
+                    value={brandBible.pricing_model}
+                    onChange={(e) => updateField('pricing_model', e.target.value)}
+                  />
+                </div>
+              )}
             </CardContent>
           </Card>
+
+          {/* Products & Services */}
+          {brandBible.products_services && brandBible.products_services.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Products & Services</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {renderArrayField('products_services', 'Offerings')}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Voice & Tone */}
           <Card>
@@ -304,14 +393,32 @@ export default function SetupPage() {
                   rows={2}
                 />
               </div>
+              {brandBible.brand_personality_traits && brandBible.brand_personality_traits.length > 0 && (
+                renderArrayField('brand_personality_traits', 'Brand Personality Traits')
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Target Audience */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Target Audience</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label>Target Audience</Label>
+                <Label>Primary Audience</Label>
                 <Textarea
                   value={brandBible.target_audience}
                   onChange={(e) => updateField('target_audience', e.target.value)}
                   rows={2}
                 />
               </div>
+              {brandBible.secondary_audiences && brandBible.secondary_audiences.length > 0 && (
+                renderArrayField('secondary_audiences', 'Secondary Audiences')
+              )}
+              {brandBible.customer_pain_points && brandBible.customer_pain_points.length > 0 && (
+                renderArrayField('customer_pain_points', 'Customer Pain Points')
+              )}
             </CardContent>
           </Card>
 
@@ -335,6 +442,9 @@ export default function SetupPage() {
             <CardContent className="space-y-6">
               {renderArrayField('key_differentiators', 'Key Differentiators')}
               {renderArrayField('unique_selling_points', 'Unique Selling Points')}
+              {brandBible.proof_points && brandBible.proof_points.length > 0 && (
+                renderArrayField('proof_points', 'Proof Points & Social Proof')
+              )}
               {renderArrayField('avoid_topics', 'Topics to Avoid')}
             </CardContent>
           </Card>

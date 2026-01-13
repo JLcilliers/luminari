@@ -554,3 +554,39 @@ export function calculateOpportunityScore(keyword: Partial<Keyword>): number {
 
   return Math.min(Math.max(score, 0), 100)
 }
+
+// ==========================================
+// Extended Brand Bible Types (Crawler)
+// ==========================================
+
+export interface ExtendedBrandBible {
+  name: string
+  tracked_brand: string
+  website_url: string
+  industry: string
+  sub_industry?: string
+  description: string
+  target_audience: string
+  secondary_audiences?: string[]
+  brand_voice: BrandVoice
+  tone_guidelines: string
+  key_differentiators: string[]
+  key_messages: string[]
+  important_keywords: string[]
+  content_pillars: string[]
+  unique_selling_points: string[]
+  products_services?: string[]
+  pricing_model?: string
+  avoid_topics: string[]
+  competitors: string[]
+  brand_personality_traits?: string[]
+  customer_pain_points?: string[]
+  proof_points?: string[]
+}
+
+export interface CrawlStats {
+  pagesCrawled: number
+  sitemapFound: boolean
+  duration: number
+  pageTypes: Record<string, number>
+}
