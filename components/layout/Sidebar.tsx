@@ -21,6 +21,7 @@ import {
   PenTool,
   Fuel,
   Rocket,
+  Plus,
 } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
@@ -101,8 +102,8 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Settings */}
-      <div className="border-t p-2">
+      {/* Settings & Add Brand */}
+      <div className="border-t p-2 space-y-1">
         <Link
           href="/settings"
           className={cn(
@@ -113,6 +114,20 @@ export function Sidebar() {
         >
           <Settings className="h-5 w-5 shrink-0" />
           {!collapsed && <span>Settings</span>}
+        </Link>
+        <Link href="/setup">
+          <Button
+            variant="outline"
+            size="sm"
+            className={cn(
+              'w-full justify-start gap-2',
+              collapsed && 'justify-center px-2'
+            )}
+            title={collapsed ? 'Add New Brand' : undefined}
+          >
+            <Plus className="h-4 w-4 shrink-0" />
+            {!collapsed && <span>Add New Brand</span>}
+          </Button>
         </Link>
       </div>
 
