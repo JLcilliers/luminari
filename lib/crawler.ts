@@ -1,4 +1,4 @@
-import { JSDOM } from 'jsdom';
+import * as cheerio from 'cheerio';
 
 export interface CrawledPage {
   url: string;
@@ -241,39 +241,34 @@ async function crawlPage(url: string, baseUrl: string): Promise<CrawledPage | nu
     if (!contentType.includes('text/html')) return null;
 
     const html = await response.text();
-    const dom = new JSDOM(html);
-    const document = dom.window.document;
+    const $ = cheerio.load(html);
 
     // Extract title
-    const title = document.querySelector('title')?.textContent?.trim() || '';
+    const title = $('title').text().trim() || '';
 
     // Extract meta description
-    const metaDescription = document.querySelector('meta[name="description"]')
-      ?.getAttribute('content') || undefined;
+    const metaDescription = $('meta[name="description"]').attr('content') || undefined;
 
     // Extract headings
     const headings: string[] = [];
-    document.querySelectorAll('h1, h2, h3').forEach(h => {
-      const text = h.textContent?.trim();
+    $('h1, h2, h3').each((_, el) => {
+      const text = $(el).text().trim();
       if (text) headings.push(text);
     });
 
-    // Extract main content (remove scripts, styles, nav, footer)
-    const elementsToRemove = document.querySelectorAll(
-      'script, style, nav, footer, header, aside, iframe, noscript, [role="navigation"], [role="banner"], [role="contentinfo"]'
-    );
-    elementsToRemove.forEach(el => el.remove());
+    // Remove scripts, styles, nav, footer for content extraction
+    $('script, style, nav, footer, header, aside, iframe, noscript, [role="navigation"], [role="banner"], [role="contentinfo"]').remove();
 
     // Get text content
-    const content = document.body?.textContent
-      ?.replace(/\s+/g, ' ')
+    const content = $('body').text()
+      .replace(/\s+/g, ' ')
       .trim()
       .slice(0, 10000) || '';
 
     // Extract internal links
     const links: string[] = [];
-    document.querySelectorAll('a[href]').forEach(a => {
-      const href = a.getAttribute('href');
+    $('a[href]').each((_, el) => {
+      const href = $(el).attr('href');
       if (!href) return;
 
       try {
