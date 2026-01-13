@@ -1,6 +1,9 @@
+'use client'
+
+import { useState, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Plus, Search } from 'lucide-react'
+import { Plus, Search, ArrowUpDown, Loader2 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import {
   Table,
@@ -17,62 +20,87 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { usePrompts, useMonitors } from '@/hooks'
 
-// Placeholder data
-const prompts = [
-  {
-    id: '1',
-    prompt_text: 'What are the best project management tools for remote teams?',
-    monitor_name: 'Product Reviews Monitor',
-    intent_type: 'commercial' as const,
-    tags: ['product', 'comparison'],
-    responses_count: 25,
-    mentions_rate: 68,
-    created_at: '2024-01-15',
-  },
-  {
-    id: '2',
-    prompt_text: 'How do I improve team productivity?',
-    monitor_name: 'Industry Trends',
-    intent_type: 'organic' as const,
-    tags: ['productivity', 'tips'],
-    responses_count: 18,
-    mentions_rate: 45,
-    created_at: '2024-01-14',
-  },
-  {
-    id: '3',
-    prompt_text: 'Compare top CRM solutions for small businesses',
-    monitor_name: 'Competitor Analysis',
-    intent_type: 'commercial' as const,
-    tags: ['crm', 'comparison', 'small-business'],
-    responses_count: 32,
-    mentions_rate: 72,
-    created_at: '2024-01-12',
-  },
-  {
-    id: '4',
-    prompt_text: 'Best practices for customer onboarding',
-    monitor_name: 'Product Reviews Monitor',
-    intent_type: 'organic' as const,
-    tags: ['onboarding', 'best-practices'],
-    responses_count: 14,
-    mentions_rate: 35,
-    created_at: '2024-01-10',
-  },
-  {
-    id: '5',
-    prompt_text: 'Which analytics tool should I use for my SaaS?',
-    monitor_name: 'Competitor Analysis',
-    intent_type: 'commercial' as const,
-    tags: ['analytics', 'saas'],
-    responses_count: 22,
-    mentions_rate: 58,
-    created_at: '2024-01-08',
-  },
-]
+type SortField = 'prompt_text' | 'search_volume' | 'difficulty_score' | 'visibility_pct' | 'responses'
+type SortDirection = 'asc' | 'desc'
 
 export default function PromptsPage() {
+  const { data: prompts, isLoading } = usePrompts()
+  const { data: monitors } = useMonitors()
+
+  const [searchQuery, setSearchQuery] = useState('')
+  const [monitorFilter, setMonitorFilter] = useState('all')
+  const [intentFilter, setIntentFilter] = useState('all')
+  const [sortField, setSortField] = useState<SortField>('visibility_pct')
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
+
+  // Transform and filter data
+  const filteredPrompts = useMemo(() => {
+    if (!prompts) return []
+
+    return prompts
+      .map(p => ({
+        ...p,
+        responses_count: (p.responses as unknown[])?.length || 0,
+        mention_rate: (p.responses as { mentions_brand: boolean }[])?.length > 0
+          ? ((p.responses as { mentions_brand: boolean }[]).filter(r => r.mentions_brand).length /
+             (p.responses as { mentions_brand: boolean }[]).length) * 100
+          : 0,
+      }))
+      .filter(p => {
+        // Search filter
+        if (searchQuery && !p.prompt_text.toLowerCase().includes(searchQuery.toLowerCase())) {
+          return false
+        }
+        // Monitor filter
+        if (monitorFilter !== 'all' && p.monitor_id !== monitorFilter) {
+          return false
+        }
+        // Intent filter
+        if (intentFilter !== 'all' && p.intent_type !== intentFilter) {
+          return false
+        }
+        return true
+      })
+      .sort((a, b) => {
+        let comparison = 0
+        switch (sortField) {
+          case 'prompt_text':
+            comparison = a.prompt_text.localeCompare(b.prompt_text)
+            break
+          case 'search_volume':
+            comparison = (a.search_volume || 0) - (b.search_volume || 0)
+            break
+          case 'difficulty_score':
+            comparison = (a.difficulty_score || 0) - (b.difficulty_score || 0)
+            break
+          case 'visibility_pct':
+            comparison = (a.visibility_pct || 0) - (b.visibility_pct || 0)
+            break
+          case 'responses':
+            comparison = a.responses_count - b.responses_count
+            break
+        }
+        return sortDirection === 'asc' ? comparison : -comparison
+      })
+  }, [prompts, searchQuery, monitorFilter, intentFilter, sortField, sortDirection])
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortField(field)
+      setSortDirection('desc')
+    }
+  }
+
+  const formatVolume = (volume: number | undefined) => {
+    if (!volume) return '—'
+    if (volume >= 1000) return `${(volume / 1000).toFixed(1)}K`
+    return volume.toString()
+  }
+
   return (
     <div className="flex flex-col gap-6 p-6">
       <div className="flex items-center justify-between">
@@ -91,20 +119,27 @@ export default function PromptsPage() {
       <div className="flex items-center gap-4">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="Search prompts..." className="pl-10" />
+          <Input
+            placeholder="Search prompts..."
+            className="pl-10"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
         </div>
-        <Select defaultValue="all">
+        <Select value={monitorFilter} onValueChange={setMonitorFilter}>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Filter by monitor" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Monitors</SelectItem>
-            <SelectItem value="product-reviews">Product Reviews</SelectItem>
-            <SelectItem value="competitor">Competitor Analysis</SelectItem>
-            <SelectItem value="industry">Industry Trends</SelectItem>
+            {monitors?.map(monitor => (
+              <SelectItem key={monitor.id} value={monitor.id}>
+                {monitor.name}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
-        <Select defaultValue="all">
+        <Select value={intentFilter} onValueChange={setIntentFilter}>
           <SelectTrigger className="w-[140px]">
             <SelectValue placeholder="Intent type" />
           </SelectTrigger>
@@ -117,55 +152,137 @@ export default function PromptsPage() {
       </div>
 
       <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[400px]">Prompt</TableHead>
-              <TableHead>Monitor</TableHead>
-              <TableHead>Intent</TableHead>
-              <TableHead>Tags</TableHead>
-              <TableHead className="text-right">Responses</TableHead>
-              <TableHead className="text-right">Mention Rate</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {prompts.map((prompt) => (
-              <TableRow key={prompt.id} className="cursor-pointer hover:bg-muted/50">
-                <TableCell className="font-medium">
-                  <span className="line-clamp-1">{prompt.prompt_text}</span>
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {prompt.monitor_name}
-                </TableCell>
-                <TableCell>
-                  <Badge variant={prompt.intent_type === 'commercial' ? 'default' : 'secondary'}>
-                    {prompt.intent_type}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <div className="flex gap-1">
-                    {prompt.tags.slice(0, 2).map((tag) => (
-                      <Badge key={tag} variant="outline" className="text-xs">
-                        {tag}
-                      </Badge>
-                    ))}
-                    {prompt.tags.length > 2 && (
-                      <Badge variant="outline" className="text-xs">
-                        +{prompt.tags.length - 2}
-                      </Badge>
-                    )}
-                  </div>
-                </TableCell>
-                <TableCell className="text-right">{prompt.responses_count}</TableCell>
-                <TableCell className="text-right">
-                  <span className={prompt.mentions_rate >= 50 ? 'text-green-600' : 'text-muted-foreground'}>
-                    {prompt.mentions_rate}%
-                  </span>
-                </TableCell>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[350px]">
+                  <button
+                    className="flex items-center gap-1 hover:text-foreground"
+                    onClick={() => handleSort('prompt_text')}
+                  >
+                    Prompt
+                    <ArrowUpDown className="h-3 w-3" />
+                  </button>
+                </TableHead>
+                <TableHead>Monitor</TableHead>
+                <TableHead>Intent</TableHead>
+                <TableHead className="text-right">
+                  <button
+                    className="flex items-center gap-1 ml-auto hover:text-foreground"
+                    onClick={() => handleSort('search_volume')}
+                  >
+                    Vol.
+                    <ArrowUpDown className="h-3 w-3" />
+                  </button>
+                </TableHead>
+                <TableHead className="text-right">
+                  <button
+                    className="flex items-center gap-1 ml-auto hover:text-foreground"
+                    onClick={() => handleSort('difficulty_score')}
+                  >
+                    Diff.
+                    <ArrowUpDown className="h-3 w-3" />
+                  </button>
+                </TableHead>
+                <TableHead className="text-right">
+                  <button
+                    className="flex items-center gap-1 ml-auto hover:text-foreground"
+                    onClick={() => handleSort('visibility_pct')}
+                  >
+                    Visibility
+                    <ArrowUpDown className="h-3 w-3" />
+                  </button>
+                </TableHead>
+                <TableHead className="text-right">
+                  <button
+                    className="flex items-center gap-1 ml-auto hover:text-foreground"
+                    onClick={() => handleSort('responses')}
+                  >
+                    Responses
+                    <ArrowUpDown className="h-3 w-3" />
+                  </button>
+                </TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {filteredPrompts.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    No prompts found
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredPrompts.map((prompt) => (
+                  <TableRow key={prompt.id} className="cursor-pointer hover:bg-muted/50">
+                    <TableCell className="font-medium">
+                      <div className="space-y-1">
+                        <span className="line-clamp-1">{prompt.prompt_text}</span>
+                        {prompt.tags && prompt.tags.length > 0 && (
+                          <div className="flex gap-1">
+                            {prompt.tags.slice(0, 2).map((tag) => (
+                              <Badge key={tag} variant="outline" className="text-xs">
+                                {tag}
+                              </Badge>
+                            ))}
+                            {prompt.tags.length > 2 && (
+                              <Badge variant="outline" className="text-xs">
+                                +{prompt.tags.length - 2}
+                              </Badge>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {(prompt.monitor as { name: string } | null)?.name || '—'}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={prompt.intent_type === 'commercial' ? 'default' : 'secondary'}>
+                        {prompt.intent_type}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {formatVolume(prompt.search_volume)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {prompt.difficulty_score ? (
+                        <span className={
+                          prompt.difficulty_score < 0.4 ? 'text-green-600' :
+                          prompt.difficulty_score < 0.7 ? 'text-yellow-600' :
+                          'text-red-600'
+                        }>
+                          {(prompt.difficulty_score * 100).toFixed(0)}
+                        </span>
+                      ) : '—'}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {prompt.visibility_pct ? (
+                        <span className={prompt.visibility_pct >= 50 ? 'text-green-600' : 'text-muted-foreground'}>
+                          {prompt.visibility_pct.toFixed(1)}%
+                        </span>
+                      ) : '—'}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex flex-col items-end">
+                        <span>{prompt.responses_count}</span>
+                        {prompt.responses_count > 0 && (
+                          <span className="text-xs text-muted-foreground">
+                            {prompt.mention_rate.toFixed(0)}% mention
+                          </span>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        )}
       </div>
     </div>
   )

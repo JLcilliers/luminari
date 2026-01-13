@@ -2,13 +2,31 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { Prompt } from '@/lib/types'
 
+export interface PromptWithResponses {
+  id: string
+  monitor_id: string
+  prompt_text: string
+  intent_type: 'organic' | 'commercial'
+  tags: string[]
+  search_volume?: number
+  difficulty_score?: number
+  visibility_pct?: number
+  created_at: string
+  monitor?: { name: string } | null
+  responses?: Array<{
+    id: string
+    mentions_brand: boolean
+    brands_mentioned?: string[]
+  }>
+}
+
 export function usePrompts(monitorId?: string) {
   return useQuery({
     queryKey: ['prompts', monitorId],
     queryFn: async () => {
       let query = supabase
         .from('prompts')
-        .select('*, monitor:monitors(name)')
+        .select('*, monitor:monitors(name), responses(id, mentions_brand, brands_mentioned)')
         .order('created_at', { ascending: false })
 
       if (monitorId) {
@@ -17,7 +35,7 @@ export function usePrompts(monitorId?: string) {
 
       const { data, error } = await query
       if (error) throw error
-      return data
+      return data as PromptWithResponses[]
     },
   })
 }

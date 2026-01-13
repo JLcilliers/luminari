@@ -32,6 +32,21 @@ export type Database = {
         Insert: Omit<VisibilityMetric, 'id'>
         Update: Partial<Omit<VisibilityMetric, 'id'>>
       }
+      competitors: {
+        Row: Competitor
+        Insert: Omit<Competitor, 'id' | 'created_at'>
+        Update: Partial<Omit<Competitor, 'id'>>
+      }
+      personas: {
+        Row: Persona
+        Insert: Omit<Persona, 'id' | 'created_at'>
+        Update: Partial<Omit<Persona, 'id'>>
+      }
+      generated_content: {
+        Row: GeneratedContent
+        Insert: Omit<GeneratedContent, 'id' | 'created_at' | 'updated_at'>
+        Update: Partial<Omit<GeneratedContent, 'id'>>
+      }
     }
   }
 }
@@ -42,6 +57,29 @@ export interface Project {
   name: string
   tracked_brand: string
   website_url: string | null
+  industry?: string
+  description?: string
+  key_messages?: string[]
+  sitemap_url?: string
+  indexed_pages?: number
+  created_at: string
+}
+
+export interface Competitor {
+  id: string
+  project_id: string
+  name: string
+  website_url?: string
+  created_at: string
+}
+
+export interface Persona {
+  id: string
+  project_id: string
+  name: string
+  description?: string
+  age_range?: string
+  traits: string[]
   created_at: string
 }
 
@@ -62,6 +100,9 @@ export interface Prompt {
   prompt_text: string
   intent_type: 'organic' | 'commercial'
   tags: string[]
+  search_volume?: number
+  difficulty_score?: number
+  visibility_pct?: number
   created_at: string
 }
 
@@ -74,6 +115,7 @@ export interface Response {
   mentions_brand: boolean
   cites_domain: boolean
   is_featured: boolean
+  brands_mentioned?: string[]
   collected_at: string
 }
 
@@ -157,4 +199,52 @@ export interface ShareOfVoice {
   domain: string
   mentions: number
   percentage: number
+}
+
+// Content Generation Types
+export type ContentType = 'article' | 'listicle' | 'comparison' | 'how-to' | 'faq'
+
+export const CONTENT_TYPES: { value: ContentType; label: string; description: string }[] = [
+  { value: 'article', label: 'Article', description: 'In-depth article covering the topic comprehensively' },
+  { value: 'listicle', label: 'Listicle', description: 'List-based article (e.g., "10 Best...")' },
+  { value: 'comparison', label: 'Comparison', description: 'Compare your brand with competitors' },
+  { value: 'how-to', label: 'How-To Guide', description: 'Step-by-step tutorial or guide' },
+  { value: 'faq', label: 'FAQ', description: 'Frequently asked questions format' },
+]
+
+export type ContentStatus = 'generating' | 'completed' | 'failed' | 'draft' | 'published'
+
+export const CONTENT_STATUS_LABELS: Record<ContentStatus, string> = {
+  generating: 'Generating',
+  completed: 'Completed',
+  failed: 'Failed',
+  draft: 'Draft',
+  published: 'Published',
+}
+
+export interface GeneratedContent {
+  id: string
+  project_id: string
+  prompt_id: string | null
+  title: string
+  content: string
+  content_type: ContentType
+  status: ContentStatus
+  target_keywords: string[]
+  word_count: number
+  seo_score?: number
+  meta_description?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface ContentGenerationRequest {
+  promptId?: string
+  promptText: string
+  contentType: ContentType
+  targetKeywords: string[]
+  brandName: string
+  competitors?: string[]
+  tone?: 'professional' | 'casual' | 'authoritative' | 'friendly'
+  wordCountTarget?: number
 }

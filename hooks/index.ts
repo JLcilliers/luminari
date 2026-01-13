@@ -23,6 +23,7 @@ export {
   useCreatePrompt,
   useUpdatePrompt,
   useDeletePrompt,
+  type PromptWithResponses,
 } from './usePrompts'
 
 // Responses
@@ -31,7 +32,10 @@ export {
   useResponse,
   useResponseStats,
   useRecentResponses,
+  useBrandMentions,
   type ResponseStats,
+  type BrandMentionCount,
+  type ResponseWithPrompt,
 } from './useResponses'
 
 // Citations
@@ -40,6 +44,7 @@ export {
   useCitationsByDomain,
   useCitationStats,
   type DomainCount,
+  type CitationWithResponse,
 } from './useCitations'
 
 // Visibility Metrics
@@ -49,3 +54,32 @@ export {
   useAggregatedMetrics,
   type VisibilityTrendData,
 } from './useVisibilityMetrics'
+
+// Competitors
+export {
+  useCompetitors,
+  useCompetitor,
+  useCreateCompetitor,
+  useUpdateCompetitor,
+  useDeleteCompetitor,
+} from './useCompetitors'
+
+// Personas
+export {
+  usePersonas,
+  usePersona,
+  useCreatePersona,
+  useUpdatePersona,
+  useDeletePersona,
+} from './usePersonas'
+
+// Generated Content
+export {
+  useGeneratedContent,
+  useGeneratedContentItem,
+  useGenerateContent,
+  useUpdateContentStatus,
+  useDeleteContent,
+  useContentStats,
+  type ContentStats,
+} from './useContent'

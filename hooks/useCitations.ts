@@ -1,5 +1,21 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import type { AIModel } from '@/lib/types'
+
+export interface CitationWithResponse {
+  id: string
+  response_id: string
+  cited_domain: string
+  cited_url: string | null
+  citation_context: string | null
+  created_at: string
+  response?: {
+    ai_model: AIModel
+    prompt?: {
+      prompt_text: string
+    } | null
+  } | null
+}
 
 export function useCitations() {
   return useQuery({
@@ -11,7 +27,7 @@ export function useCitations() {
         .order('created_at', { ascending: false })
         .limit(100)
       if (error) throw error
-      return data
+      return data as CitationWithResponse[]
     },
   })
 }

@@ -11,10 +11,24 @@ import {
   Link2,
   Settings,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Building2,
+  ChevronDown,
+  Sparkles,
+  Smile,
+  Target,
+  Library,
+  PenTool,
 } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { useProjects } from '@/hooks'
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -22,6 +36,10 @@ const navigation = [
   { name: 'Prompts', href: '/prompts', icon: MessageSquare },
   { name: 'Responses', href: '/responses', icon: FileText },
   { name: 'Citations', href: '/citations', icon: Link2 },
+  { name: 'Sentiment', href: '/sentiment', icon: Smile },
+  { name: 'Answer Gaps', href: '/answer-gaps', icon: Target },
+  { name: 'Create Content', href: '/create-content', icon: PenTool },
+  { name: 'Content Library', href: '/content-library', icon: Library },
 ]
 
 export function Sidebar() {

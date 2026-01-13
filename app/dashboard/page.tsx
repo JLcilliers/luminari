@@ -3,6 +3,8 @@ import { VisibilityChart } from '@/components/dashboard/VisibilityChart'
 import { ModelDistribution } from '@/components/dashboard/ModelDistribution'
 import { ShareOfVoice } from '@/components/dashboard/ShareOfVoice'
 import { RecentResponses } from '@/components/dashboard/RecentResponses'
+import { TopBrands } from '@/components/dashboard/TopBrands'
+import { TopDomains } from '@/components/dashboard/TopDomains'
 
 export default function DashboardPage() {
   return (
@@ -19,6 +21,11 @@ export default function DashboardPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         <VisibilityChart />
         <ModelDistribution />
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <TopBrands />
+        <TopDomains />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">

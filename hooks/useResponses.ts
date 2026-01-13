@@ -2,6 +2,22 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { Response, AIModel } from '@/lib/types'
 
+export interface ResponseWithPrompt {
+  id: string
+  prompt_id: string
+  ai_model: AIModel
+  response_text: string
+  sentiment_score: number | null
+  mentions_brand: boolean
+  cites_domain: boolean
+  is_featured: boolean
+  brands_mentioned?: string[]
+  collected_at: string
+  prompt?: {
+    prompt_text: string
+  } | null
+}
+
 export function useResponses(promptId?: string) {
   return useQuery({
     queryKey: ['responses', promptId],
@@ -18,7 +34,7 @@ export function useResponses(promptId?: string) {
 
       const { data, error } = await query
       if (error) throw error
-      return data
+      return data as ResponseWithPrompt[]
     },
   })
 }
@@ -95,6 +111,41 @@ export function useRecentResponses(limit = 10) {
 
       if (error) throw error
       return data
+    },
+  })
+}
+
+export interface BrandMentionCount {
+  brand: string
+  count: number
+}
+
+export function useBrandMentions() {
+  return useQuery({
+    queryKey: ['responses', 'brand-mentions'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('responses')
+        .select('brands_mentioned')
+        .returns<{ brands_mentioned: string[] | null }[]>()
+
+      if (error) throw error
+      if (!data) return []
+
+      // Count brand mentions
+      const brandCounts: Record<string, number> = {}
+      data.forEach(r => {
+        if (r.brands_mentioned) {
+          r.brands_mentioned.forEach(brand => {
+            brandCounts[brand] = (brandCounts[brand] || 0) + 1
+          })
+        }
+      })
+
+      // Convert to sorted array
+      return Object.entries(brandCounts)
+        .map(([brand, count]) => ({ brand, count }))
+        .sort((a, b) => b.count - a.count) as BrandMentionCount[]
     },
   })
 }

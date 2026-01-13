@@ -1,9 +1,12 @@
+'use client'
+
+import { useState, useMemo } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Search, ExternalLink, ThumbsUp, ThumbsDown, Minus } from 'lucide-react'
+import { Search, ExternalLink, ThumbsUp, ThumbsDown, Minus, Loader2 } from 'lucide-react'
 import {
   Select,
   SelectContent,
@@ -11,57 +14,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { AI_MODEL_LABELS, AI_MODEL_COLORS, type AIModel } from '@/lib/types'
+import { AI_MODEL_LABELS, AI_MODEL_COLORS, AI_MODELS, type AIModel } from '@/lib/types'
+import { useResponses, type ResponseWithPrompt } from '@/hooks'
 
-// Placeholder data
-const responses = [
-  {
-    id: '1',
-    prompt_text: 'What are the best project management tools?',
-    ai_model: 'chatgpt' as AIModel,
-    response_text: 'There are several excellent project management tools available. Some of the top options include Asana for task management, Monday.com for visual workflows, Jira for software development teams, Trello for simple kanban boards, and YourBrand for comprehensive team collaboration...',
-    sentiment_score: 0.8,
-    mentions_brand: true,
-    cites_domain: true,
-    is_featured: true,
-    collected_at: '2024-01-15T10:30:00Z',
-  },
-  {
-    id: '2',
-    prompt_text: 'Compare popular CRM solutions',
-    ai_model: 'claude' as AIModel,
-    response_text: 'When comparing CRM solutions, it\'s important to consider factors like pricing, features, and scalability. Salesforce leads the enterprise market, while HubSpot offers a strong free tier. For mid-market companies, Pipedrive and Zoho provide excellent value...',
-    sentiment_score: 0.6,
-    mentions_brand: true,
-    cites_domain: false,
-    is_featured: false,
-    collected_at: '2024-01-15T09:15:00Z',
-  },
-  {
-    id: '3',
-    prompt_text: 'Best tools for team collaboration',
-    ai_model: 'gemini' as AIModel,
-    response_text: 'For team collaboration, Slack remains the most popular choice for real-time communication. Microsoft Teams integrates well with Office 365 environments. Notion and Confluence are excellent for documentation and knowledge management...',
-    sentiment_score: 0.4,
-    mentions_brand: false,
-    cites_domain: false,
-    is_featured: false,
-    collected_at: '2024-01-15T08:45:00Z',
-  },
-  {
-    id: '4',
-    prompt_text: 'Enterprise software recommendations',
-    ai_model: 'perplexity' as AIModel,
-    response_text: 'According to recent industry reports, enterprise software choices depend heavily on your specific needs. For ERP, SAP and Oracle lead the market. For project management, YourBrand has emerged as a strong contender with its AI-powered features [source: yourbrand.com]...',
-    sentiment_score: 0.9,
-    mentions_brand: true,
-    cites_domain: true,
-    is_featured: true,
-    collected_at: '2024-01-15T07:20:00Z',
-  },
-]
-
-function getSentimentIcon(score: number) {
+function getSentimentIcon(score: number | null) {
+  if (score === null) return <Minus className="h-4 w-4 text-muted-foreground" />
   if (score >= 0.7) return <ThumbsUp className="h-4 w-4 text-green-600" />
   if (score >= 0.4) return <Minus className="h-4 w-4 text-yellow-600" />
   return <ThumbsDown className="h-4 w-4 text-red-600" />
@@ -76,7 +33,130 @@ function formatDate(dateString: string) {
   })
 }
 
+type TabFilter = 'all' | 'mentions' | 'citations' | 'featured'
+type SentimentFilter = 'all' | 'positive' | 'neutral' | 'negative'
+
 export default function ResponsesPage() {
+  const { data: responses, isLoading } = useResponses()
+
+  const [searchQuery, setSearchQuery] = useState('')
+  const [modelFilter, setModelFilter] = useState('all')
+  const [sentimentFilter, setSentimentFilter] = useState<SentimentFilter>('all')
+  const [activeTab, setActiveTab] = useState<TabFilter>('all')
+
+  const filteredResponses = useMemo(() => {
+    if (!responses) return []
+
+    return responses.filter((r: ResponseWithPrompt) => {
+      // Search filter
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase()
+        const promptText = r.prompt?.prompt_text || ''
+        if (!r.response_text.toLowerCase().includes(query) &&
+            !promptText.toLowerCase().includes(query)) {
+          return false
+        }
+      }
+
+      // Model filter
+      if (modelFilter !== 'all' && r.ai_model !== modelFilter) {
+        return false
+      }
+
+      // Sentiment filter
+      if (sentimentFilter !== 'all') {
+        const score = r.sentiment_score
+        if (sentimentFilter === 'positive' && (score === null || score < 0.7)) return false
+        if (sentimentFilter === 'neutral' && (score === null || score < 0.4 || score >= 0.7)) return false
+        if (sentimentFilter === 'negative' && (score === null || score >= 0.4)) return false
+      }
+
+      // Tab filter
+      switch (activeTab) {
+        case 'mentions':
+          if (!r.mentions_brand) return false
+          break
+        case 'citations':
+          if (!r.cites_domain) return false
+          break
+        case 'featured':
+          if (!r.is_featured) return false
+          break
+      }
+
+      return true
+    })
+  }, [responses, searchQuery, modelFilter, sentimentFilter, activeTab])
+
+  // Count for tab badges
+  const counts = useMemo(() => {
+    if (!responses) return { all: 0, mentions: 0, citations: 0, featured: 0 }
+    return {
+      all: responses.length,
+      mentions: responses.filter(r => r.mentions_brand).length,
+      citations: responses.filter(r => r.cites_domain).length,
+      featured: responses.filter(r => r.is_featured).length,
+    }
+  }, [responses])
+
+  const ResponseCard = ({ response }: { response: ResponseWithPrompt }) => (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between">
+          <div className="space-y-1">
+            <p className="font-medium">
+              {response.prompt?.prompt_text || 'Unknown prompt'}
+            </p>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Badge
+                variant="outline"
+                style={{
+                  borderColor: AI_MODEL_COLORS[response.ai_model as AIModel],
+                  color: AI_MODEL_COLORS[response.ai_model as AIModel],
+                }}
+              >
+                {AI_MODEL_LABELS[response.ai_model as AIModel]}
+              </Badge>
+              <span>{formatDate(response.collected_at)}</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {response.mentions_brand && (
+              <Badge variant="secondary">Mentioned</Badge>
+            )}
+            {response.cites_domain && (
+              <Badge variant="secondary">Cited</Badge>
+            )}
+            {response.is_featured && (
+              <Badge>Featured</Badge>
+            )}
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground line-clamp-3">
+            {response.response_text}
+          </p>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {getSentimentIcon(response.sentiment_score)}
+              <span className="text-sm text-muted-foreground">
+                Sentiment: {response.sentiment_score !== null
+                  ? `${(response.sentiment_score * 100).toFixed(0)}%`
+                  : 'N/A'}
+              </span>
+            </div>
+            <Button variant="ghost" size="sm">
+              View Full Response
+              <ExternalLink className="ml-2 h-3 w-3" />
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+
   return (
     <div className="flex flex-col gap-6 p-6">
       <div>
@@ -89,22 +169,27 @@ export default function ResponsesPage() {
       <div className="flex items-center gap-4">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="Search responses..." className="pl-10" />
+          <Input
+            placeholder="Search responses..."
+            className="pl-10"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
         </div>
-        <Select defaultValue="all">
+        <Select value={modelFilter} onValueChange={setModelFilter}>
           <SelectTrigger className="w-[160px]">
             <SelectValue placeholder="AI Model" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Models</SelectItem>
-            <SelectItem value="chatgpt">ChatGPT</SelectItem>
-            <SelectItem value="claude">Claude</SelectItem>
-            <SelectItem value="gemini">Gemini</SelectItem>
-            <SelectItem value="perplexity">Perplexity</SelectItem>
-            <SelectItem value="copilot">Copilot</SelectItem>
+            {AI_MODELS.map(model => (
+              <SelectItem key={model} value={model}>
+                {AI_MODEL_LABELS[model]}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
-        <Select defaultValue="all">
+        <Select value={sentimentFilter} onValueChange={(v) => setSentimentFilter(v as SentimentFilter)}>
           <SelectTrigger className="w-[140px]">
             <SelectValue placeholder="Sentiment" />
           </SelectTrigger>
@@ -117,83 +202,43 @@ export default function ResponsesPage() {
         </Select>
       </div>
 
-      <Tabs defaultValue="all" className="w-full">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabFilter)} className="w-full">
         <TabsList>
-          <TabsTrigger value="all">All Responses</TabsTrigger>
-          <TabsTrigger value="mentions">With Mentions</TabsTrigger>
-          <TabsTrigger value="citations">With Citations</TabsTrigger>
-          <TabsTrigger value="featured">Featured</TabsTrigger>
+          <TabsTrigger value="all" className="gap-2">
+            All Responses
+            <Badge variant="secondary" className="text-xs">{counts.all}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="mentions" className="gap-2">
+            With Mentions
+            <Badge variant="secondary" className="text-xs">{counts.mentions}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="citations" className="gap-2">
+            With Citations
+            <Badge variant="secondary" className="text-xs">{counts.citations}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="featured" className="gap-2">
+            Featured
+            <Badge variant="secondary" className="text-xs">{counts.featured}</Badge>
+          </TabsTrigger>
         </TabsList>
-        <TabsContent value="all" className="space-y-4 mt-4">
-          {responses.map((response) => (
-            <Card key={response.id}>
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <p className="font-medium">{response.prompt_text}</p>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Badge
-                        variant="outline"
-                        style={{
-                          borderColor: AI_MODEL_COLORS[response.ai_model],
-                          color: AI_MODEL_COLORS[response.ai_model],
-                        }}
-                      >
-                        {AI_MODEL_LABELS[response.ai_model]}
-                      </Badge>
-                      <span>{formatDate(response.collected_at)}</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {response.mentions_brand && (
-                      <Badge variant="secondary">Mentioned</Badge>
-                    )}
-                    {response.cites_domain && (
-                      <Badge variant="secondary">Cited</Badge>
-                    )}
-                    {response.is_featured && (
-                      <Badge>Featured</Badge>
-                    )}
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <p className="text-sm text-muted-foreground line-clamp-3">
-                    {response.response_text}
-                  </p>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      {getSentimentIcon(response.sentiment_score)}
-                      <span className="text-sm text-muted-foreground">
-                        Sentiment: {(response.sentiment_score * 100).toFixed(0)}%
-                      </span>
-                    </div>
-                    <Button variant="ghost" size="sm">
-                      View Full Response
-                      <ExternalLink className="ml-2 h-3 w-3" />
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </TabsContent>
-        <TabsContent value="mentions" className="mt-4">
-          <div className="text-center py-8 text-muted-foreground">
-            Filtered responses with brand mentions will appear here
+
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
-        </TabsContent>
-        <TabsContent value="citations" className="mt-4">
-          <div className="text-center py-8 text-muted-foreground">
-            Filtered responses with domain citations will appear here
-          </div>
-        </TabsContent>
-        <TabsContent value="featured" className="mt-4">
-          <div className="text-center py-8 text-muted-foreground">
-            Featured responses will appear here
-          </div>
-        </TabsContent>
+        ) : (
+          <TabsContent value={activeTab} className="space-y-4 mt-4">
+            {filteredResponses.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                No responses found matching your filters
+              </div>
+            ) : (
+              filteredResponses.map((response) => (
+                <ResponseCard key={response.id} response={response} />
+              ))
+            )}
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   )
