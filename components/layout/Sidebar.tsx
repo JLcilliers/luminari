@@ -19,6 +19,8 @@ import {
   Target,
   Library,
   PenTool,
+  Fuel,
+  Rocket,
 } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
@@ -38,6 +40,8 @@ const navigation = [
   { name: 'Citations', href: '/citations', icon: Link2 },
   { name: 'Sentiment', href: '/sentiment', icon: Smile },
   { name: 'Answer Gaps', href: '/answer-gaps', icon: Target },
+  { name: 'Keyword Fueler', href: '/keyword-fueler', icon: Fuel },
+  { name: 'Launchpad', href: '/visibility-launchpad', icon: Rocket },
   { name: 'Create Content', href: '/create-content', icon: PenTool },
   { name: 'Content Library', href: '/content-library', icon: Library },
 ]

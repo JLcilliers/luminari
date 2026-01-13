@@ -5,6 +5,7 @@ import { ShareOfVoice } from '@/components/dashboard/ShareOfVoice'
 import { RecentResponses } from '@/components/dashboard/RecentResponses'
 import { TopBrands } from '@/components/dashboard/TopBrands'
 import { TopDomains } from '@/components/dashboard/TopDomains'
+import { HealthScore } from '@/components/dashboard/HealthScore'
 
 export default function DashboardPage() {
   return (
@@ -20,10 +21,11 @@ export default function DashboardPage() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         <VisibilityChart />
-        <ModelDistribution />
+        <HealthScore />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-6 lg:grid-cols-3">
+        <ModelDistribution />
         <TopBrands />
         <TopDomains />
       </div>

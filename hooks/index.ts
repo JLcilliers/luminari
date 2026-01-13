@@ -83,3 +83,36 @@ export {
   useContentStats,
   type ContentStats,
 } from './useContent'
+
+// Health Score
+export {
+  useHealthScore,
+  useUpdateHealthScore,
+} from './useHealthScore'
+
+// Keywords (Phase 5B)
+export {
+  useKeywords,
+  useKeywordCart,
+  useAddToCart,
+  useRemoveFromCart,
+  useClearCart,
+  useSendToLaunchpad,
+  useAddKeyword,
+  useDeleteKeyword,
+  useCompetitorDomains,
+  useAddCompetitorDomain,
+  useDeleteCompetitorDomain,
+  useAnalyzeKeywords,
+  useBulkAddToCart,
+  useLaunchpadKeywords,
+} from './useKeywords'
+
+// Visibility Launchpad (Phase 5C)
+export {
+  useLaunchpadItems,
+  useLaunchpadStats,
+  useMarkContentCreated,
+  useAddPromptToLaunchpad,
+  useRemoveFromLaunchpad,
+} from './useLaunchpad'
