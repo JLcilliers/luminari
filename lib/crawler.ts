@@ -49,9 +49,9 @@ export interface AggregatedContent {
 }
 
 const USER_AGENT = 'Luminari Brand Analyzer/1.0 (https://useluminari.com)';
-const MAX_PAGES = 50;
-const CONCURRENT_REQUESTS = 2;
-const REQUEST_DELAY = 500; // ms between requests
+const MAX_PAGES = 200;
+const CONCURRENT_REQUESTS = 5; // Increased for faster crawling
+const REQUEST_DELAY = 300; // Reduced delay for faster crawling
 
 // Priority order for crawling
 const PAGE_PRIORITY: Record<string, number> = {

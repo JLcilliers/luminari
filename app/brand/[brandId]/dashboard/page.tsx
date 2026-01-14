@@ -9,6 +9,7 @@ import { RecentResponses } from '@/components/dashboard/RecentResponses';
 import { TopBrands } from '@/components/dashboard/TopBrands';
 import { TopDomains } from '@/components/dashboard/TopDomains';
 import { HealthScore } from '@/components/dashboard/HealthScore';
+import { SetupChecklist } from '@/components/dashboard/SetupChecklist';
 
 export default function DashboardPage() {
   const params = useParams();
@@ -22,6 +23,8 @@ export default function DashboardPage() {
           Monitor your brand visibility across AI platforms
         </p>
       </div>
+
+      <SetupChecklist projectId={brandId} />
 
       <StatsCards projectId={brandId} />
 

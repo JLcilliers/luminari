@@ -233,7 +233,7 @@ export default function SetupPage() {
               </div>
               <div className="flex items-center gap-2 animate-pulse">
                 <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                <span>Crawling content (up to 50 pages)...</span>
+                <span>Deep crawling content (up to 200 pages)...</span>
               </div>
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Circle className="h-4 w-4" />
@@ -245,7 +245,7 @@ export default function SetupPage() {
               </div>
             </div>
             <p className="text-xs text-muted-foreground mt-6">
-              This may take 30-60 seconds depending on site size
+              This may take 60-120 seconds for comprehensive analysis
             </p>
           </CardContent>
         </Card>
