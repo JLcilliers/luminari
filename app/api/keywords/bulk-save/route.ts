@@ -43,14 +43,12 @@ export async function POST(request: NextRequest) {
       project_id: projectId,
       keyword: (typeof k === 'string' ? k : k.keyword).toLowerCase().trim(),
       search_volume: k.searchVolume || k.search_volume || null,
-      difficulty: k.difficulty || null,
+      keyword_difficulty: k.difficulty || k.keyword_difficulty || null,
       position: k.position || k.current_position || null,
-      url: k.url || k.ranking_url || null,
+      landing_page: k.url || k.ranking_url || k.landing_page || null,
       cpc: k.cpc || null,
-      competition: k.competition || null,
       intent_type: intentMap[(k.intent || '').toLowerCase()] || null,
       source: dbSource,
-      last_updated: new Date().toISOString(),
     }));
 
     // Upsert keywords

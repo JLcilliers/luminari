@@ -82,13 +82,11 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Prepare keywords for insertion
+    // Prepare keywords for insertion (source must be manual, gsc, or dataforseo per DB constraint)
     const keywordsToInsert = uniqueKeywords.map(keyword => ({
       project_id: projectId,
       keyword: keyword,
-      source: 'brand_bible',
-      created_at: new Date().toISOString(),
-      last_updated: new Date().toISOString(),
+      source: 'manual',
     }));
 
     // Upsert keywords (ignore duplicates)
