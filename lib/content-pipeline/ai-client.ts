@@ -39,7 +39,7 @@ export async function callClaude<T>(
     model = process.env.CLAUDE_MODEL || 'claude-sonnet-4-5-20250929',
     temperature = 0.3,
     maxTokens = 8000,
-    timeoutMs = 120000,
+    timeoutMs = 300000, // 5 minutes for long content generation
   } = options;
 
   const client = getAnthropicClient();

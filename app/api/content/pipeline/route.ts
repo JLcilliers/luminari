@@ -4,6 +4,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+
+// Vercel function configuration - extend timeout for long-running pipeline
+export const maxDuration = 300; // 5 minutes max duration
+export const dynamic = 'force-dynamic';
 import { createClient } from '@supabase/supabase-js';
 import { runContentPipeline } from '@/lib/content-pipeline';
 import type { PipelineInput, PipelineRequest } from '@/lib/content-pipeline/types';
