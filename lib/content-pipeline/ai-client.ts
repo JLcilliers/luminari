@@ -75,25 +75,39 @@ export async function callClaude<T>(
     }
 
     // Parse JSON response
-    let jsonText = content.text;
+    let jsonText = content.text.trim();
 
-    // Handle code fence wrapped JSON
+    // Handle code fence wrapped JSON - multiple strategies
+    // Strategy 1: Try to match complete code fence
     const jsonMatch = jsonText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
     if (jsonMatch) {
-      jsonText = jsonMatch[1];
+      jsonText = jsonMatch[1].trim();
+    } else {
+      // Strategy 2: If response starts with ```json, strip the opening fence
+      if (jsonText.startsWith('```json')) {
+        jsonText = jsonText.substring(7).trim();
+      } else if (jsonText.startsWith('```')) {
+        jsonText = jsonText.substring(3).trim();
+      }
+      // Also strip closing ``` if present
+      if (jsonText.endsWith('```')) {
+        jsonText = jsonText.substring(0, jsonText.length - 3).trim();
+      }
     }
 
-    // Clean up any trailing content after the JSON
+    // Strategy 3: Find the actual JSON object bounds
+    const firstBrace = jsonText.indexOf('{');
     const lastBrace = jsonText.lastIndexOf('}');
-    if (lastBrace !== -1) {
-      jsonText = jsonText.substring(0, lastBrace + 1);
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      jsonText = jsonText.substring(firstBrace, lastBrace + 1);
     }
 
     try {
       return JSON.parse(jsonText) as T;
     } catch (parseError) {
       console.error('JSON parse error:', parseError);
-      console.error('Raw text:', content.text.substring(0, 500));
+      console.error('Raw text (first 500 chars):', content.text.substring(0, 500));
+      console.error('Processed text (first 500 chars):', jsonText.substring(0, 500));
       throw new Error(`Failed to parse Claude response as JSON: ${parseError}`);
     }
   } catch (error: unknown) {
