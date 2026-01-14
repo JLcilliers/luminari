@@ -18,19 +18,38 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No keywords provided' }, { status: 400 });
     }
 
-    // Prepare keywords for insertion
+    // Map source to allowed values in DB schema
+    const sourceMap: Record<string, string> = {
+      'ai_discovery': 'manual',
+      'brand_bible': 'manual',
+      'domain_scan': 'dataforseo',
+      'manual': 'manual',
+      'gsc': 'gsc',
+      'dataforseo': 'dataforseo',
+    };
+    const dbSource = sourceMap[source] || 'manual';
+
+    // Map intent to allowed values in DB schema
+    const intentMap: Record<string, string> = {
+      'informational': 'informational',
+      'commercial': 'commercial',
+      'transactional': 'transactional',
+      'navigational': 'navigational',
+    };
+
+    // Prepare keywords for insertion (using correct DB column names)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const keywordsToInsert = keywords.map((k: any) => ({
       project_id: projectId,
       keyword: (typeof k === 'string' ? k : k.keyword).toLowerCase().trim(),
       search_volume: k.searchVolume || k.search_volume || null,
       difficulty: k.difficulty || null,
-      current_position: k.position || k.current_position || null,
-      ranking_url: k.url || k.ranking_url || null,
+      position: k.position || k.current_position || null,
+      url: k.url || k.ranking_url || null,
       cpc: k.cpc || null,
       competition: k.competition || null,
-      intent: k.intent || null,
-      source: source,
+      intent_type: intentMap[(k.intent || '').toLowerCase()] || null,
+      source: dbSource,
       last_updated: new Date().toISOString(),
     }));
 
