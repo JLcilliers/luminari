@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import {
   ArrowLeft,
   LayoutDashboard,
+  BookOpen,
   MonitorDot,
   MessageSquare,
   FileText,
@@ -28,6 +29,7 @@ import { useState } from 'react';
 
 const navigation = [
   { name: 'Dashboard', href: 'dashboard', icon: LayoutDashboard },
+  { name: 'Brand Bible', href: 'brand-bible', icon: BookOpen },
   { name: 'Monitors', href: 'monitors', icon: MonitorDot },
   { name: 'Prompts', href: 'prompts', icon: MessageSquare },
   { name: 'Responses', href: 'responses', icon: FileText },

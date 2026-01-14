@@ -53,7 +53,7 @@ export function SetupChecklist({ projectId }: SetupChecklistProps) {
       title: 'Brand Bible Created',
       description: 'Your brand identity and positioning is defined',
       completed: hasBrandBible,
-      href: `/brand/${projectId}/settings`,
+      href: `/brand/${projectId}/brand-bible`,
       icon: <BookOpen className="h-5 w-5" />,
       actionLabel: 'Create Brand Bible',
       completedLabel: 'View Brand Bible'

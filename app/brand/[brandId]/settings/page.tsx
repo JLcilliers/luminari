@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Database, Key, Loader2, Map } from 'lucide-react'
 import { useProject } from '@/hooks'
-import { BrandBookForm, CompetitorList, PersonaList } from '@/components/settings'
+import { CompetitorList, PersonaList } from '@/components/settings'
 
 export default function SettingsPage() {
   const params = useParams()
@@ -59,19 +59,14 @@ export default function SettingsPage() {
         </p>
       </div>
 
-      <Tabs defaultValue="brand-book" className="w-full">
+      <Tabs defaultValue="competitors" className="w-full">
         <TabsList>
-          <TabsTrigger value="brand-book">Brand Book</TabsTrigger>
           <TabsTrigger value="competitors">Competitors</TabsTrigger>
           <TabsTrigger value="personas">Personas</TabsTrigger>
           <TabsTrigger value="sitemap">Sitemap</TabsTrigger>
           <TabsTrigger value="database">Database</TabsTrigger>
           <TabsTrigger value="api">API Keys</TabsTrigger>
         </TabsList>
-
-        <TabsContent value="brand-book" className="space-y-6 mt-6">
-          <BrandBookForm projectId={brandId} />
-        </TabsContent>
 
         <TabsContent value="competitors" className="space-y-6 mt-6">
           <CompetitorList projectId={brandId} />
