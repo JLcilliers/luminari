@@ -1,10 +1,21 @@
 'use client';
 
-import { useProjects, type ProjectWithStats } from '@/hooks/useProjects';
+import { useState } from 'react';
+import { useProjects, useDeleteProject, type ProjectWithStats } from '@/hooks/useProjects';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
   Plus,
   Building2,
@@ -15,11 +26,35 @@ import {
   MessageSquare,
   FileText,
   Target,
+  Trash2,
 } from 'lucide-react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 
 export default function BrandsPage() {
   const { data: projects, isLoading } = useProjects();
+  const deleteProject = useDeleteProject();
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [brandToDelete, setBrandToDelete] = useState<ProjectWithStats | null>(null);
+
+  const handleDeleteBrand = (project: ProjectWithStats) => {
+    setBrandToDelete(project);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!brandToDelete) return;
+
+    try {
+      await deleteProject.mutateAsync(brandToDelete.id);
+      toast.success(`"${brandToDelete.tracked_brand}" has been deleted`);
+    } catch (error) {
+      toast.error('Failed to delete brand. Please try again.');
+    } finally {
+      setDeleteDialogOpen(false);
+      setBrandToDelete(null);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -55,7 +90,7 @@ export default function BrandsPage() {
         {projects && projects.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {projects.map((project) => (
-              <BrandCard key={project.id} project={project} />
+              <BrandCard key={project.id} project={project} onDelete={handleDeleteBrand} />
             ))}
 
             {/* Add Brand Card */}
@@ -93,6 +128,39 @@ export default function BrandsPage() {
             </CardContent>
           </Card>
         )}
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Brand</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete <strong>{brandToDelete?.tracked_brand}</strong>?
+                This will permanently remove all associated monitors, prompts, responses, and data.
+                This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={confirmDelete}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {deleteProject.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete Brand
+                  </>
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );
@@ -100,17 +168,24 @@ export default function BrandsPage() {
 
 interface BrandCardProps {
   project: ProjectWithStats;
+  onDelete: (project: ProjectWithStats) => void;
 }
 
-function BrandCard({ project }: BrandCardProps) {
+function BrandCard({ project, onDelete }: BrandCardProps) {
   const visibilityScore = project.health_score || 0;
   const mentionRate = project.response_count > 0
     ? Math.round((project.mention_count / project.response_count) * 100)
     : 0;
 
+  const handleDelete = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onDelete(project);
+  };
+
   return (
     <Link href={`/brand/${project.id}/dashboard`}>
-      <Card className="hover:shadow-lg hover:border-primary/50 transition-all cursor-pointer h-full">
+      <Card className="hover:shadow-lg hover:border-primary/50 transition-all cursor-pointer h-full group">
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
@@ -124,9 +199,19 @@ function BrandCard({ project }: BrandCardProps) {
                 </CardDescription>
               </div>
             </div>
-            <Badge variant={visibilityScore > 50 ? 'default' : 'secondary'}>
-              {visibilityScore > 0 ? `${visibilityScore}%` : 'New'}
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant={visibilityScore > 50 ? 'default' : 'secondary'}>
+                {visibilityScore > 0 ? `${visibilityScore}%` : 'New'}
+              </Badge>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                onClick={handleDelete}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
