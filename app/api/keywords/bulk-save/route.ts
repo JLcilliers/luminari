@@ -51,18 +51,18 @@ export async function POST(request: NextRequest) {
       source: dbSource,
     }));
 
-    // Upsert keywords
+    // Upsert keywords (unique constraint is on project_id, keyword, source)
     const { data, error } = await supabase
       .from('keywords')
       .upsert(keywordsToInsert, {
-        onConflict: 'project_id,keyword',
+        onConflict: 'project_id,keyword,source',
         ignoreDuplicates: false
       })
       .select();
 
     if (error) {
       console.error('Supabase error:', error);
-      return NextResponse.json({ error: 'Failed to save keywords' }, { status: 500 });
+      return NextResponse.json({ error: 'Failed to save keywords', details: error.message }, { status: 500 });
     }
 
     return NextResponse.json({
