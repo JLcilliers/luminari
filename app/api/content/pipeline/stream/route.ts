@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
         // Save to database
         if (result.finalOutput) {
           try {
-            await supabase.from('generated_content').insert({
+            const { error: insertError } = await supabase.from('generated_content').insert({
               project_id: projectId,
               title: result.stages.editedContent?.metaTitle || topic,
               meta_description: result.stages.editedContent?.metaDescription,
@@ -109,8 +109,12 @@ export async function POST(request: NextRequest) {
               seo_score: result.stages.editedContent?.seoScore,
               readability_score: result.stages.editedContent?.readabilityScore,
               pipeline_id: result.pipelineId,
+              content_type: contentType || 'article',
               status: 'completed',
             });
+            if (insertError) {
+              console.error('[Pipeline Stream] Database insert error:', insertError);
+            }
           } catch (saveError) {
             console.warn('[Pipeline Stream] Failed to save:', saveError);
           }
