@@ -2,9 +2,8 @@
 
 import { useState, useMemo } from 'react';
 import { useParams } from 'next/navigation';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, ArrowUpDown, Loader2 } from 'lucide-react';
+import { Search, ArrowUpDown, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
   Table,
@@ -22,6 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { usePrompts, useMonitors } from '@/hooks';
+import { AddPromptDialog } from '@/components/prompts';
 
 type SortField = 'prompt_text' | 'search_volume' | 'difficulty_score' | 'visibility_pct' | 'responses';
 type SortDirection = 'asc' | 'desc';
@@ -114,10 +114,7 @@ export default function PromptsPage() {
             Manage prompts used to query AI models
           </p>
         </div>
-        <Button>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Prompt
-        </Button>
+        <AddPromptDialog projectId={brandId} />
       </div>
 
       <div className="flex items-center gap-4">

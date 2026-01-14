@@ -12,7 +12,8 @@ import {
   MessageSquare,
   Bot,
   Users,
-  Rocket
+  Rocket,
+  ExternalLink
 } from 'lucide-react'
 import Link from 'next/link'
 import { useProject, useMonitors, usePrompts, useResponseStats, useCompetitors } from '@/hooks'
@@ -29,6 +30,7 @@ interface ChecklistItem {
   href: string
   icon: React.ReactNode
   actionLabel: string
+  completedLabel?: string
 }
 
 export function SetupChecklist({ projectId }: SetupChecklistProps) {
@@ -53,7 +55,8 @@ export function SetupChecklist({ projectId }: SetupChecklistProps) {
       completed: hasBrandBible,
       href: `/brand/${projectId}/settings`,
       icon: <BookOpen className="h-5 w-5" />,
-      actionLabel: 'Review Brand Bible'
+      actionLabel: 'Create Brand Bible',
+      completedLabel: 'View Brand Bible'
     },
     {
       id: 'monitors',
@@ -62,7 +65,8 @@ export function SetupChecklist({ projectId }: SetupChecklistProps) {
       completed: hasMonitors,
       href: `/brand/${projectId}/monitors`,
       icon: <Radio className="h-5 w-5" />,
-      actionLabel: 'Add Monitors'
+      actionLabel: 'Add Monitors',
+      completedLabel: 'View Monitors'
     },
     {
       id: 'prompts',
@@ -71,7 +75,8 @@ export function SetupChecklist({ projectId }: SetupChecklistProps) {
       completed: hasPrompts,
       href: `/brand/${projectId}/prompts`,
       icon: <MessageSquare className="h-5 w-5" />,
-      actionLabel: 'Create Prompts'
+      actionLabel: 'Create Prompts',
+      completedLabel: 'View Prompts'
     },
     {
       id: 'responses',
@@ -80,16 +85,18 @@ export function SetupChecklist({ projectId }: SetupChecklistProps) {
       completed: hasResponses,
       href: `/brand/${projectId}/responses`,
       icon: <Bot className="h-5 w-5" />,
-      actionLabel: 'Collect Responses'
+      actionLabel: 'Collect Responses',
+      completedLabel: 'View Responses'
     },
     {
       id: 'competitors',
       title: 'Track Competitors',
       description: 'Monitor how competitors appear in AI responses',
       completed: hasCompetitors,
-      href: `/brand/${projectId}/settings`,
+      href: `/brand/${projectId}/settings?tab=competitors`,
       icon: <Users className="h-5 w-5" />,
-      actionLabel: 'Add Competitors'
+      actionLabel: 'Add Competitors',
+      completedLabel: 'View Competitors'
     }
   ]
 
@@ -157,14 +164,19 @@ export function SetupChecklist({ projectId }: SetupChecklistProps) {
                 {item.description}
               </p>
             </div>
-            {!item.completed && (
-              <Link href={item.href}>
-                <Button size="sm" variant={index === checklistItems.findIndex(i => !i.completed) ? 'default' : 'outline'}>
-                  {item.actionLabel}
+            <Link href={item.href}>
+              <Button
+                size="sm"
+                variant={item.completed ? 'ghost' : index === checklistItems.findIndex(i => !i.completed) ? 'default' : 'outline'}
+              >
+                {item.completed ? (item.completedLabel || 'View') : item.actionLabel}
+                {item.completed ? (
+                  <ExternalLink className="ml-2 h-4 w-4" />
+                ) : (
                   <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </Link>
-            )}
+                )}
+              </Button>
+            </Link>
           </div>
         ))}
 
