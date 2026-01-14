@@ -2,12 +2,13 @@
 
 import { useState, useMemo } from 'react';
 import { useParams } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, ExternalLink, ThumbsUp, ThumbsDown, Minus, Loader2 } from 'lucide-react';
+import { Search, ExternalLink, ThumbsUp, ThumbsDown, Minus, Loader2, Play, RefreshCw } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -16,7 +17,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { AI_MODEL_LABELS, AI_MODEL_COLORS, AI_MODELS, type AIModel } from '@/lib/types';
-import { useResponses, type ResponseWithPrompt } from '@/hooks';
+import { useResponses, usePrompts, type ResponseWithPrompt } from '@/hooks';
+import { toast } from 'sonner';
 
 function getSentimentIcon(score: number | null) {
   if (score === null) return <Minus className="h-4 w-4 text-muted-foreground" />;
@@ -40,13 +42,57 @@ type SentimentFilter = 'all' | 'positive' | 'neutral' | 'negative';
 export default function ResponsesPage() {
   const params = useParams();
   const brandId = params.brandId as string;
+  const queryClient = useQueryClient();
 
   const { data: responses, isLoading } = useResponses(brandId);
+  const { data: prompts } = usePrompts(brandId);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [modelFilter, setModelFilter] = useState('all');
   const [sentimentFilter, setSentimentFilter] = useState<SentimentFilter>('all');
   const [activeTab, setActiveTab] = useState<TabFilter>('all');
+  const [isCollecting, setIsCollecting] = useState(false);
+
+  const promptCount = prompts?.length || 0;
+  const hasPrompts = promptCount > 0;
+
+  const handleCollectResponses = async () => {
+    if (!hasPrompts) {
+      toast.error('No prompts found. Add prompts first before collecting responses.');
+      return;
+    }
+
+    setIsCollecting(true);
+    toast.info(`Starting collection for ${promptCount} prompts...`, {
+      description: 'This may take a few minutes depending on the number of prompts.',
+    });
+
+    try {
+      const response = await fetch('/api/collect-all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId: brandId }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Collection failed');
+      }
+
+      const result = await response.json();
+
+      // Invalidate the responses query to refresh data
+      await queryClient.invalidateQueries({ queryKey: ['responses'] });
+
+      toast.success('Response collection complete!', {
+        description: `Collected ${result.results.responsessSaved} responses from ${result.results.processed} prompts.`,
+      });
+    } catch (error) {
+      console.error('Collection error:', error);
+      toast.error('Failed to collect responses. Please try again.');
+    } finally {
+      setIsCollecting(false);
+    }
+  };
 
   const filteredResponses = useMemo(() => {
     if (!responses) return [];
@@ -163,12 +209,45 @@ export default function ResponsesPage() {
 
   return (
     <div className="flex flex-col gap-6 p-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Responses</h1>
-        <p className="text-muted-foreground">
-          View AI responses collected from your prompts
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Responses</h1>
+          <p className="text-muted-foreground">
+            View AI responses collected from your prompts
+          </p>
+        </div>
+        <Button
+          onClick={handleCollectResponses}
+          disabled={isCollecting || !hasPrompts}
+          size="lg"
+        >
+          {isCollecting ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Collecting...
+            </>
+          ) : responses && responses.length > 0 ? (
+            <>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Refresh Responses
+            </>
+          ) : (
+            <>
+              <Play className="mr-2 h-4 w-4" />
+              Collect Responses
+            </>
+          )}
+        </Button>
       </div>
+
+      {!hasPrompts && (
+        <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4 text-sm">
+          <p className="font-medium text-amber-700 dark:text-amber-400">No prompts configured</p>
+          <p className="text-amber-600 dark:text-amber-500 mt-1">
+            Add prompts in the Prompts tab before collecting AI responses.
+          </p>
+        </div>
+      )}
 
       <div className="flex items-center gap-4">
         <div className="relative flex-1 max-w-sm">
