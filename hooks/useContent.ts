@@ -346,3 +346,123 @@ export function useQuickSuggestions() {
     },
   })
 }
+
+// Content Pipeline Hooks
+
+export interface PipelineStreamEvent {
+  type: 'progress' | 'stage-complete' | 'error' | 'complete'
+  stage?: string
+  status?: string
+  message: string
+  progress?: number
+  data?: unknown
+  timestamp: string
+}
+
+export interface PipelineRequest {
+  projectId: string
+  topic: string
+  targetKeyword: string
+  secondaryKeywords?: string[]
+  targetWordCount?: number
+  contentType?: 'article' | 'blog-post' | 'guide' | 'how-to'
+  additionalNotes?: string
+}
+
+export interface PipelineResult {
+  pipelineId: string
+  duration: number
+  result: {
+    title?: string
+    metaTitle?: string
+    metaDescription?: string
+    wordCount?: number
+    seoScore?: number
+    readabilityScore?: number
+    markdown?: string
+    html?: string
+    json?: unknown
+    schema?: string
+    faqs?: { question: string; answer: string }[]
+  }
+}
+
+export function useContentPipeline() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (request: PipelineRequest) => {
+      const response = await fetch('/api/content/pipeline', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Pipeline failed')
+      }
+
+      return response.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['generated-content'] })
+    },
+  })
+}
+
+export function useStreamingContentPipeline() {
+  return {
+    run: async (
+      request: PipelineRequest,
+      onEvent: (event: PipelineStreamEvent) => void
+    ): Promise<PipelineResult | null> => {
+      const response = await fetch('/api/content/pipeline/stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Pipeline failed')
+      }
+
+      const reader = response.body?.getReader()
+      if (!reader) {
+        throw new Error('No response body')
+      }
+
+      const decoder = new TextDecoder()
+      let buffer = ''
+      let finalResult: PipelineResult | null = null
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+
+        const lines = buffer.split('\n\n')
+        buffer = lines.pop() || ''
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const event = JSON.parse(line.slice(6)) as PipelineStreamEvent
+              onEvent(event)
+
+              if (event.type === 'complete' && event.data) {
+                finalResult = event.data as PipelineResult
+              }
+            } catch (e) {
+              console.warn('Failed to parse SSE event:', e)
+            }
+          }
+        }
+      }
+
+      return finalResult
+    },
+  }
+}

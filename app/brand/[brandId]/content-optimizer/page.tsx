@@ -35,8 +35,11 @@ import {
   useOptimizationTasks,
   useAnalyzeContent,
   useGenerateOptimizedContent,
+  useStreamingContentPipeline,
   type ContentAnalysis,
   type OptimizationRecommendation,
+  type PipelineStreamEvent,
+  type PipelineResult,
 } from '@/hooks/useContent'
 import { useKeywords } from '@/hooks/useKeywords'
 import { cn } from '@/lib/utils'
@@ -413,29 +416,122 @@ function AnalyzeTab({ projectId }: { projectId: string }) {
   )
 }
 
-function GenerateTab({ projectId }: { projectId: string }) {
-  const [targetKeyword, setTargetKeyword] = useState('')
-  const [generatedContent, setGeneratedContent] = useState<{
-    title: string
-    metaDescription: string
-    outline: string[]
-    introduction: string
-    sections: { heading: string; content: string }[]
-  } | null>(null)
+// Pipeline stages configuration
+const PIPELINE_STAGES = [
+  { id: 'brand-analyzer', label: 'Brand Analyzer', description: 'Extracting brand DNA' },
+  { id: 'content-planner', label: 'Content Planner', description: 'Creating content plan' },
+  { id: 'writer', label: 'Writer', description: 'Writing content' },
+  { id: 'editor', label: 'Editor', description: 'Polishing content' },
+  { id: 'schema-generator', label: 'Schema Generator', description: 'Creating JSON-LD' },
+  { id: 'output-generator', label: 'Output Generator', description: 'Generating outputs' },
+]
 
-  const generateContent = useGenerateOptimizedContent()
+function PipelineStageIndicator({
+  stage,
+  currentStage,
+  status,
+}: {
+  stage: { id: string; label: string; description: string }
+  currentStage: string | null
+  status: 'pending' | 'running' | 'completed' | 'error'
+}) {
+  const isActive = currentStage === stage.id
+  const isPending = status === 'pending'
+  const isCompleted = status === 'completed'
+  const isError = status === 'error'
+
+  return (
+    <div
+      className={cn(
+        'flex items-center gap-3 p-3 rounded-lg border transition-all',
+        isActive && 'border-primary bg-primary/5',
+        isCompleted && 'border-green-500 bg-green-50',
+        isError && 'border-red-500 bg-red-50',
+        isPending && 'border-muted'
+      )}
+    >
+      <div className="flex-shrink-0">
+        {isActive && <Loader2 className="h-5 w-5 animate-spin text-primary" />}
+        {isCompleted && <CheckCircle2 className="h-5 w-5 text-green-500" />}
+        {isError && <AlertCircle className="h-5 w-5 text-red-500" />}
+        {isPending && <div className="h-5 w-5 rounded-full border-2 border-muted" />}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className={cn('font-medium text-sm', isPending && 'text-muted-foreground')}>
+          {stage.label}
+        </p>
+        <p className="text-xs text-muted-foreground truncate">{stage.description}</p>
+      </div>
+    </div>
+  )
+}
+
+function GenerateTab({ projectId }: { projectId: string }) {
+  const [topic, setTopic] = useState('')
+  const [targetKeyword, setTargetKeyword] = useState('')
+  const [additionalNotes, setAdditionalNotes] = useState('')
+  const [targetWordCount, setTargetWordCount] = useState(1500)
+  const [isRunning, setIsRunning] = useState(false)
+  const [currentStage, setCurrentStage] = useState<string | null>(null)
+  const [progress, setProgress] = useState(0)
+  const [stageStatus, setStageStatus] = useState<Record<string, 'pending' | 'running' | 'completed' | 'error'>>({})
+  const [statusMessage, setStatusMessage] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [result, setResult] = useState<PipelineResult | null>(null)
+
+  const streamingPipeline = useStreamingContentPipeline()
   const { data: keywords } = useKeywords(projectId)
   const topKeywords = keywords?.slice(0, 10) || []
 
   const handleGenerate = async () => {
-    if (!targetKeyword.trim()) return
+    if (!topic.trim() || !targetKeyword.trim()) return
 
-    const result = await generateContent.mutateAsync({
-      projectId,
-      targetKeyword: targetKeyword.trim(),
-    })
+    setIsRunning(true)
+    setError(null)
+    setResult(null)
+    setProgress(0)
+    setCurrentStage(null)
+    setStatusMessage('Starting pipeline...')
+    setStageStatus({})
 
-    setGeneratedContent(result.content)
+    try {
+      const finalResult = await streamingPipeline.run(
+        {
+          projectId,
+          topic: topic.trim(),
+          targetKeyword: targetKeyword.trim(),
+          targetWordCount,
+          additionalNotes: additionalNotes.trim() || undefined,
+          contentType: 'article',
+        },
+        (event: PipelineStreamEvent) => {
+          setStatusMessage(event.message)
+          if (event.progress !== undefined) {
+            setProgress(event.progress)
+          }
+          if (event.stage) {
+            setCurrentStage(event.stage)
+            if (event.type === 'progress') {
+              setStageStatus((prev) => ({ ...prev, [event.stage!]: 'running' }))
+            } else if (event.type === 'stage-complete') {
+              setStageStatus((prev) => ({ ...prev, [event.stage!]: 'completed' }))
+            }
+          }
+          if (event.type === 'error') {
+            setError(event.message)
+          }
+        }
+      )
+
+      if (finalResult) {
+        setResult(finalResult)
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Pipeline failed')
+    } finally {
+      setIsRunning(false)
+      setCurrentStage(null)
+    }
   }
 
   const copyToClipboard = (text: string) => {
@@ -443,63 +539,96 @@ function GenerateTab({ projectId }: { projectId: string }) {
   }
 
   const copyAllContent = () => {
-    if (!generatedContent) return
-
-    const fullContent = `# ${generatedContent.title}
-
-${generatedContent.introduction}
-
-${generatedContent.sections.map(s => `## ${s.heading}\n\n${s.content}`).join('\n\n')}`
-
-    navigator.clipboard.writeText(fullContent)
+    if (result?.result.markdown) {
+      navigator.clipboard.writeText(result.result.markdown)
+    }
   }
 
   return (
     <div className="space-y-6">
+      {/* Input Form */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5" />
-            Generate Optimized Content
+            6-Agent Content Pipeline
           </CardTitle>
           <CardDescription>
-            Generate SEO-optimized content structure for any keyword
+            Generate publication-ready SEO content using our AI agent pipeline
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Target Keyword</label>
-            <Input
-              placeholder="Enter target keyword..."
-              value={targetKeyword}
-              onChange={(e) => setTargetKeyword(e.target.value)}
-            />
-            {topKeywords.length > 0 && (
-              <div className="flex flex-wrap gap-1 mt-2">
-                {topKeywords.map((kw) => (
-                  <Button
-                    key={kw.id}
-                    variant="outline"
-                    size="sm"
-                    className="h-6 text-xs"
-                    onClick={() => setTargetKeyword(kw.keyword)}
-                  >
-                    {kw.keyword}
-                  </Button>
-                ))}
-              </div>
-            )}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Topic / Title</label>
+              <Input
+                placeholder="Enter your content topic..."
+                value={topic}
+                onChange={(e) => setTopic(e.target.value)}
+                disabled={isRunning}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Target Keyword</label>
+              <Input
+                placeholder="Primary keyword to target..."
+                value={targetKeyword}
+                onChange={(e) => setTargetKeyword(e.target.value)}
+                disabled={isRunning}
+              />
+              {topKeywords.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {topKeywords.map((kw) => (
+                    <Button
+                      key={kw.id}
+                      variant="outline"
+                      size="sm"
+                      className="h-6 text-xs"
+                      onClick={() => setTargetKeyword(kw.keyword)}
+                      disabled={isRunning}
+                    >
+                      {kw.keyword}
+                    </Button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Target Word Count</label>
+              <Input
+                type="number"
+                value={targetWordCount}
+                onChange={(e) => setTargetWordCount(parseInt(e.target.value) || 1500)}
+                min={500}
+                max={5000}
+                step={100}
+                disabled={isRunning}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Additional Notes (optional)</label>
+              <Input
+                placeholder="Special instructions or topics to cover..."
+                value={additionalNotes}
+                onChange={(e) => setAdditionalNotes(e.target.value)}
+                disabled={isRunning}
+              />
+            </div>
           </div>
 
           <Button
             onClick={handleGenerate}
-            disabled={generateContent.isPending || !targetKeyword.trim()}
+            disabled={isRunning || !topic.trim() || !targetKeyword.trim()}
             className="w-full"
+            size="lg"
           >
-            {generateContent.isPending ? (
+            {isRunning ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                Generating Content...
+                Running Pipeline...
               </>
             ) : (
               <>
@@ -511,100 +640,162 @@ ${generatedContent.sections.map(s => `## ${s.heading}\n\n${s.content}`).join('\n
         </CardContent>
       </Card>
 
-      {generatedContent && (
+      {/* Pipeline Progress */}
+      {isRunning && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Pipeline Progress
+            </CardTitle>
+            <CardDescription>{statusMessage}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Progress value={progress} className="h-2" />
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {PIPELINE_STAGES.map((stage) => (
+                <PipelineStageIndicator
+                  key={stage.id}
+                  stage={stage}
+                  currentStage={currentStage}
+                  status={stageStatus[stage.id] || 'pending'}
+                />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Error Display */}
+      {error && !isRunning && (
+        <Card className="border-destructive">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2 text-destructive">
+              <AlertCircle className="h-5 w-5" />
+              <span className="font-medium">Pipeline Error</span>
+            </div>
+            <p className="mt-2 text-sm text-muted-foreground">{error}</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Results */}
+      {result && (
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle>Generated Content</CardTitle>
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <CheckCircle2 className="h-5 w-5 text-green-500" />
+                  Content Generated
+                </CardTitle>
+                <CardDescription>
+                  {result.result.wordCount} words | SEO Score: {result.result.seoScore}/100 |
+                  Readability: {result.result.readabilityScore}/100
+                </CardDescription>
+              </div>
               <Button variant="outline" size="sm" onClick={copyAllContent}>
                 <Copy className="h-4 w-4 mr-2" />
-                Copy All
+                Copy Markdown
               </Button>
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Title & Meta */}
+            {/* Meta Info */}
             <div className="space-y-4">
               <div className="p-4 bg-primary/5 rounded-lg">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-muted-foreground">Title Tag</span>
+                  <span className="text-sm font-medium text-muted-foreground">Meta Title</span>
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => copyToClipboard(generatedContent.title)}
+                    onClick={() => copyToClipboard(result.result.metaTitle || '')}
                   >
                     <Copy className="h-3 w-3" />
                   </Button>
                 </div>
-                <h1 className="text-xl font-bold">{generatedContent.title}</h1>
+                <p className="font-medium">{result.result.metaTitle}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {result.result.metaTitle?.length} characters
+                </p>
               </div>
+
               <div className="p-4 bg-muted rounded-lg">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-muted-foreground">Meta Description</span>
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => copyToClipboard(generatedContent.metaDescription)}
+                    onClick={() => copyToClipboard(result.result.metaDescription || '')}
                   >
                     <Copy className="h-3 w-3" />
                   </Button>
                 </div>
-                <p className="text-sm">{generatedContent.metaDescription}</p>
+                <p className="text-sm">{result.result.metaDescription}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {result.result.metaDescription?.length} characters
+                </p>
               </div>
             </div>
 
-            {/* Outline */}
-            {generatedContent.outline && generatedContent.outline.length > 0 && (
-              <div className="p-4 border rounded-lg">
-                <h3 className="font-medium mb-3">Content Outline</h3>
-                <ol className="list-decimal list-inside space-y-1 text-sm">
-                  {generatedContent.outline.map((item, idx) => (
-                    <li key={idx}>{item}</li>
-                  ))}
-                </ol>
-              </div>
-            )}
-
-            {/* Introduction */}
-            {generatedContent.introduction && (
+            {/* Content Preview */}
+            {result.result.markdown && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-medium">Introduction</h3>
+                  <h3 className="font-medium">Content Preview</h3>
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => copyToClipboard(generatedContent.introduction)}
+                    onClick={() => copyToClipboard(result.result.markdown || '')}
                   >
-                    <Copy className="h-3 w-3" />
+                    <Copy className="h-3 w-3 mr-1" />
+                    Copy
                   </Button>
                 </div>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  {generatedContent.introduction}
-                </p>
+                <div className="p-4 border rounded-lg bg-muted/50 max-h-96 overflow-y-auto">
+                  <pre className="text-sm whitespace-pre-wrap font-mono">
+                    {result.result.markdown.substring(0, 2000)}
+                    {result.result.markdown.length > 2000 && '\n\n... (content truncated)'}
+                  </pre>
+                </div>
               </div>
             )}
 
-            {/* Sections */}
-            {generatedContent.sections && generatedContent.sections.length > 0 && (
-              <div className="space-y-4">
-                <h3 className="font-medium">Content Sections</h3>
-                {generatedContent.sections.map((section, idx) => (
-                  <div key={idx} className="p-4 border rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium text-primary">{section.heading}</h4>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => copyToClipboard(`## ${section.heading}\n\n${section.content}`)}
-                      >
-                        <Copy className="h-3 w-3" />
-                      </Button>
+            {/* FAQs */}
+            {result.result.faqs && result.result.faqs.length > 0 && (
+              <div className="space-y-2">
+                <h3 className="font-medium">FAQs ({result.result.faqs.length})</h3>
+                <div className="space-y-3">
+                  {result.result.faqs.map((faq, idx) => (
+                    <div key={idx} className="p-3 border rounded-lg">
+                      <p className="font-medium text-sm">{faq.question}</p>
+                      <p className="text-sm text-muted-foreground mt-1">{faq.answer}</p>
                     </div>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      {section.content}
-                    </p>
-                  </div>
-                ))}
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Schema */}
+            {result.result.schema && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-medium">JSON-LD Schema</h3>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => copyToClipboard(result.result.schema || '')}
+                  >
+                    <Copy className="h-3 w-3 mr-1" />
+                    Copy
+                  </Button>
+                </div>
+                <div className="p-3 border rounded-lg bg-muted/50 max-h-48 overflow-y-auto">
+                  <pre className="text-xs whitespace-pre-wrap font-mono">
+                    {result.result.schema.substring(0, 1000)}
+                    {result.result.schema.length > 1000 && '\n... (truncated)'}
+                  </pre>
+                </div>
               </div>
             )}
           </CardContent>
