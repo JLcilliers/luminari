@@ -402,3 +402,98 @@ export function useLaunchpadKeywords(projectId?: string) {
     enabled: !!projectId,
   })
 }
+
+// Sync keywords from GSC and/or DataForSEO
+export function useSyncKeywords() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({
+      projectId,
+      source = 'both',
+      days = 28,
+    }: {
+      projectId: string
+      source?: 'gsc' | 'dataforseo' | 'both'
+      days?: number
+    }) => {
+      const response = await fetch('/api/keywords/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId, source, days }),
+      })
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to sync keywords')
+      }
+      return response.json()
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['keywords', variables.projectId] })
+    },
+  })
+}
+
+// Keyword research - get related keywords, SERP results, competitor analysis
+export function useKeywordResearch() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({
+      projectId,
+      type,
+      keyword,
+      domain,
+      keywords,
+      limit = 50,
+    }: {
+      projectId: string
+      type: 'related' | 'serp' | 'competitor' | 'bulk-metrics' | 'gap-analysis'
+      keyword?: string
+      domain?: string
+      keywords?: string[]
+      limit?: number
+    }) => {
+      const response = await fetch('/api/keywords/research', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId, type, keyword, domain, keywords, limit }),
+      })
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to perform keyword research')
+      }
+      return response.json()
+    },
+    onSuccess: (_, variables) => {
+      // Invalidate keywords if competitor analysis was done (saves to DB)
+      if (variables.type === 'competitor') {
+        queryClient.invalidateQueries({ queryKey: ['competitor-keywords', variables.projectId] })
+      }
+    },
+  })
+}
+
+// Get competitor keywords from database
+export function useCompetitorKeywords(projectId?: string, domain?: string) {
+  return useQuery({
+    queryKey: ['competitor-keywords', projectId, domain],
+    queryFn: async () => {
+      let query = supabase
+        .from('competitor_keywords')
+        .select('*')
+        .eq('project_id', projectId!)
+        .order('search_volume', { ascending: false })
+
+      if (domain) {
+        query = query.eq('competitor_domain', domain)
+      }
+
+      const { data, error } = await query
+
+      if (error) throw error
+      return data
+    },
+    enabled: !!projectId,
+  })
+}

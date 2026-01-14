@@ -81,7 +81,14 @@ export {
   useUpdateContentStatus,
   useDeleteContent,
   useContentStats,
+  useOptimizationTasks,
+  useAnalyzeContent,
+  useGenerateOptimizedContent,
+  useQuickSuggestions,
   type ContentStats,
+  type OptimizationTask,
+  type ContentAnalysis,
+  type OptimizationRecommendation,
 } from './useContent'
 
 // Health Score
@@ -106,6 +113,9 @@ export {
   useAnalyzeKeywords,
   useBulkAddToCart,
   useLaunchpadKeywords,
+  useSyncKeywords,
+  useKeywordResearch,
+  useCompetitorKeywords,
 } from './useKeywords'
 
 // Visibility Launchpad (Phase 5C)
