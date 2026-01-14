@@ -950,9 +950,9 @@ export default function KeywordIntelPage() {
 
   // Scan domain for ranking keywords
   const scanDomainKeywords = async () => {
-    const website = (project as { website?: string })?.website
+    const website = (project as { website_url?: string })?.website_url
     if (!website) {
-      alert('No website URL found for this brand. Please add one in Settings.')
+      alert('No website URL found for this brand. Please add one in Brand Settings.')
       return
     }
 
