@@ -6,8 +6,8 @@
 import { NextRequest } from 'next/server';
 
 // Vercel function configuration - extend timeout for long-running pipeline
-// Pro plan allows up to 900 seconds (15 minutes)
-export const maxDuration = 900;
+// Pro plan allows up to 800 seconds (13+ minutes)
+export const maxDuration = 800;
 export const dynamic = 'force-dynamic';
 import { createClient } from '@supabase/supabase-js';
 import { runContentPipeline } from '@/lib/content-pipeline';
