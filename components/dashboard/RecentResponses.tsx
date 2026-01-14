@@ -21,8 +21,12 @@ function getSentimentLabel(score: number | null) {
   return 'Negative'
 }
 
-export function RecentResponses() {
-  const { data: responses, isLoading } = useRecentResponses(5)
+interface RecentResponsesProps {
+  projectId: string
+}
+
+export function RecentResponses({ projectId }: RecentResponsesProps) {
+  const { data: responses, isLoading } = useRecentResponses(projectId, 5)
 
   if (isLoading) {
     return (

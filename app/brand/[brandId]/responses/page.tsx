@@ -1,27 +1,28 @@
-'use client'
+'use client';
 
-import { useState, useMemo } from 'react'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Search, ExternalLink, ThumbsUp, ThumbsDown, Minus, Loader2 } from 'lucide-react'
+import { useState, useMemo } from 'react';
+import { useParams } from 'next/navigation';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Search, ExternalLink, ThumbsUp, ThumbsDown, Minus, Loader2 } from 'lucide-react';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
-import { AI_MODEL_LABELS, AI_MODEL_COLORS, AI_MODELS, type AIModel } from '@/lib/types'
-import { useResponses, type ResponseWithPrompt } from '@/hooks'
+} from '@/components/ui/select';
+import { AI_MODEL_LABELS, AI_MODEL_COLORS, AI_MODELS, type AIModel } from '@/lib/types';
+import { useResponses, type ResponseWithPrompt } from '@/hooks';
 
 function getSentimentIcon(score: number | null) {
-  if (score === null) return <Minus className="h-4 w-4 text-muted-foreground" />
-  if (score >= 0.7) return <ThumbsUp className="h-4 w-4 text-green-600" />
-  if (score >= 0.4) return <Minus className="h-4 w-4 text-yellow-600" />
-  return <ThumbsDown className="h-4 w-4 text-red-600" />
+  if (score === null) return <Minus className="h-4 w-4 text-muted-foreground" />;
+  if (score >= 0.7) return <ThumbsUp className="h-4 w-4 text-green-600" />;
+  if (score >= 0.4) return <Minus className="h-4 w-4 text-yellow-600" />;
+  return <ThumbsDown className="h-4 w-4 text-red-600" />;
 }
 
 function formatDate(dateString: string) {
@@ -30,74 +31,77 @@ function formatDate(dateString: string) {
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
-  })
+  });
 }
 
-type TabFilter = 'all' | 'mentions' | 'citations' | 'featured'
-type SentimentFilter = 'all' | 'positive' | 'neutral' | 'negative'
+type TabFilter = 'all' | 'mentions' | 'citations' | 'featured';
+type SentimentFilter = 'all' | 'positive' | 'neutral' | 'negative';
 
 export default function ResponsesPage() {
-  const { data: responses, isLoading } = useResponses()
+  const params = useParams();
+  const brandId = params.brandId as string;
 
-  const [searchQuery, setSearchQuery] = useState('')
-  const [modelFilter, setModelFilter] = useState('all')
-  const [sentimentFilter, setSentimentFilter] = useState<SentimentFilter>('all')
-  const [activeTab, setActiveTab] = useState<TabFilter>('all')
+  const { data: responses, isLoading } = useResponses(brandId);
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [modelFilter, setModelFilter] = useState('all');
+  const [sentimentFilter, setSentimentFilter] = useState<SentimentFilter>('all');
+  const [activeTab, setActiveTab] = useState<TabFilter>('all');
 
   const filteredResponses = useMemo(() => {
-    if (!responses) return []
+    if (!responses) return [];
 
     return responses.filter((r: ResponseWithPrompt) => {
       // Search filter
       if (searchQuery) {
-        const query = searchQuery.toLowerCase()
-        const promptText = r.prompt?.prompt_text || ''
+        const query = searchQuery.toLowerCase();
+        const promptText = r.prompt?.prompt_text || '';
         if (!r.response_text.toLowerCase().includes(query) &&
             !promptText.toLowerCase().includes(query)) {
-          return false
+          return false;
         }
       }
 
       // Model filter
       if (modelFilter !== 'all' && r.ai_model !== modelFilter) {
-        return false
+        return false;
       }
 
       // Sentiment filter
       if (sentimentFilter !== 'all') {
-        const score = r.sentiment_score
-        if (sentimentFilter === 'positive' && (score === null || score < 0.7)) return false
-        if (sentimentFilter === 'neutral' && (score === null || score < 0.4 || score >= 0.7)) return false
-        if (sentimentFilter === 'negative' && (score === null || score >= 0.4)) return false
+        const score = r.sentiment_score;
+        if (sentimentFilter === 'positive' && (score === null || score < 0.7)) return false;
+        if (sentimentFilter === 'neutral' && (score === null || score < 0.4 || score >= 0.7)) return false;
+        if (sentimentFilter === 'negative' && (score === null || score >= 0.4)) return false;
       }
 
       // Tab filter
       switch (activeTab) {
         case 'mentions':
-          if (!r.mentions_brand) return false
-          break
+          if (!r.mentions_brand) return false;
+          break;
         case 'citations':
-          if (!r.cites_domain) return false
-          break
+          if (!r.cites_domain) return false;
+          break;
         case 'featured':
-          if (!r.is_featured) return false
-          break
+          if (!r.is_featured) return false;
+          break;
       }
 
-      return true
-    })
-  }, [responses, searchQuery, modelFilter, sentimentFilter, activeTab])
+      return true;
+    });
+  }, [responses, searchQuery, modelFilter, sentimentFilter, activeTab]);
 
   // Count for tab badges
   const counts = useMemo(() => {
-    if (!responses) return { all: 0, mentions: 0, citations: 0, featured: 0 }
+    if (!responses) return { all: 0, mentions: 0, citations: 0, featured: 0 };
     return {
       all: responses.length,
       mentions: responses.filter(r => r.mentions_brand).length,
       citations: responses.filter(r => r.cites_domain).length,
       featured: responses.filter(r => r.is_featured).length,
-    }
-  }, [responses])
+    };
+  }, [responses]);
 
   const ResponseCard = ({ response }: { response: ResponseWithPrompt }) => (
     <Card>
@@ -155,7 +159,7 @@ export default function ResponsesPage() {
         </div>
       </CardContent>
     </Card>
-  )
+  );
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -241,5 +245,5 @@ export default function ResponsesPage() {
         )}
       </Tabs>
     </div>
-  )
+  );
 }

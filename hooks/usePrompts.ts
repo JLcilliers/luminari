@@ -20,13 +20,13 @@ export interface PromptWithResponses {
   }>
 }
 
-export function usePrompts(monitorId?: string) {
+export function usePrompts(projectId?: string, monitorId?: string) {
   return useQuery({
-    queryKey: ['prompts', monitorId],
+    queryKey: ['prompts', projectId, monitorId],
     queryFn: async () => {
       let query = supabase
         .from('prompts')
-        .select('*, monitor:monitors(name), responses(id, mentions_brand, brands_mentioned)')
+        .select('*, monitor:monitors(name, project_id), responses(id, mentions_brand, brands_mentioned)')
         .order('created_at', { ascending: false })
 
       if (monitorId) {
@@ -35,8 +35,16 @@ export function usePrompts(monitorId?: string) {
 
       const { data, error } = await query
       if (error) throw error
-      return data as PromptWithResponses[]
+
+      // Filter by projectId if provided (through the monitor relationship)
+      let prompts = data as (PromptWithResponses & { monitor?: { name: string; project_id: string } | null })[]
+      if (projectId) {
+        prompts = prompts.filter(p => p.monitor?.project_id === projectId)
+      }
+
+      return prompts as PromptWithResponses[]
     },
+    enabled: !projectId || !!projectId, // Always enabled, projectId is optional filter
   })
 }
 

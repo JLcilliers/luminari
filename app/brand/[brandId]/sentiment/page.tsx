@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
+import { useParams } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Loader2, ThumbsUp, ThumbsDown, Minus, TrendingUp, TrendingDown, AlertCircle } from 'lucide-react'
@@ -58,7 +59,10 @@ function formatDate(dateString: string) {
 }
 
 export default function SentimentPage() {
-  const { data: responses, isLoading } = useResponses()
+  const params = useParams()
+  const brandId = params.brandId as string
+
+  const { data: responses, isLoading } = useResponses(brandId)
 
   // Calculate sentiment breakdown
   const sentimentStats = useMemo(() => {

@@ -1,9 +1,12 @@
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { ArrowLeft, Play, Settings, Plus } from 'lucide-react'
-import Link from 'next/link'
+'use client';
+
+import { useParams } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ArrowLeft, Play, Settings, Plus } from 'lucide-react';
+import Link from 'next/link';
 import {
   Table,
   TableBody,
@@ -11,8 +14,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table'
-import { AI_MODEL_LABELS, type AIModel } from '@/lib/types'
+} from '@/components/ui/table';
+import { AI_MODEL_LABELS, type AIModel } from '@/lib/types';
 
 // Placeholder data
 const monitor = {
@@ -23,7 +26,7 @@ const monitor = {
   ai_models: ['chatgpt', 'claude', 'gemini'] as AIModel[],
   is_active: true,
   created_at: '2024-01-01',
-}
+};
 
 const prompts = [
   {
@@ -47,25 +50,23 @@ const prompts = [
     responses_count: 32,
     mentions_rate: 72,
   },
-]
+];
 
 const recentRuns = [
   { date: '2024-01-15 10:30', prompts: 15, responses: 75, mentions: 52 },
   { date: '2024-01-14 10:30', prompts: 15, responses: 75, mentions: 48 },
   { date: '2024-01-13 10:30', prompts: 15, responses: 75, mentions: 55 },
-]
+];
 
-interface MonitorDetailPageProps {
-  params: Promise<{ id: string }>
-}
-
-export default async function MonitorDetailPage({ params }: MonitorDetailPageProps) {
-  const { id } = await params
+export default function MonitorDetailPage() {
+  const params = useParams();
+  const brandId = params.brandId as string;
+  const monitorId = params.id as string;
 
   return (
     <div className="flex flex-col gap-6 p-6">
       <div className="flex items-center gap-4">
-        <Link href="/monitors">
+        <Link href={`/brand/${brandId}/monitors`}>
           <Button variant="ghost" size="icon">
             <ArrowLeft className="h-4 w-4" />
           </Button>
@@ -231,5 +232,5 @@ export default async function MonitorDetailPage({ params }: MonitorDetailPagePro
         </TabsContent>
       </Tabs>
     </div>
-  )
+  );
 }

@@ -14,8 +14,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useVisibilityTrend } from '@/hooks'
 import { BarChart3 } from 'lucide-react'
 
-export function VisibilityChart() {
-  const { data: trendData, isLoading } = useVisibilityTrend(undefined, 30)
+interface VisibilityChartProps {
+  projectId: string
+}
+
+export function VisibilityChart({ projectId }: VisibilityChartProps) {
+  const { data: trendData, isLoading } = useVisibilityTrend(projectId, 30)
 
   // Format data for the chart
   const chartData = trendData?.map(d => ({

@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { useParams } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -31,7 +32,7 @@ import {
   Target,
   ExternalLink,
 } from 'lucide-react'
-import { usePrompts, useProjects, useCompetitors, type PromptWithResponses } from '@/hooks'
+import { usePrompts, useProject, useCompetitors, type PromptWithResponses } from '@/hooks'
 
 type SortField = 'priority' | 'prompt_text' | 'competitor_count' | 'visibility_pct'
 type SortDirection = 'asc' | 'desc'
@@ -63,17 +64,20 @@ function getPriorityColor(priority: string) {
 }
 
 export default function AnswerGapsPage() {
-  const { data: prompts, isLoading: promptsLoading } = usePrompts()
-  const { data: projects, isLoading: projectsLoading } = useProjects()
-  const { data: competitors, isLoading: competitorsLoading } = useCompetitors(projects?.[0]?.id)
+  const params = useParams()
+  const brandId = params.brandId as string
+
+  const { data: prompts, isLoading: promptsLoading } = usePrompts(brandId)
+  const { data: project, isLoading: projectLoading } = useProject(brandId)
+  const { data: competitors, isLoading: competitorsLoading } = useCompetitors(brandId)
 
   const [searchQuery, setSearchQuery] = useState('')
   const [priorityFilter, setPriorityFilter] = useState('all')
   const [sortField, setSortField] = useState<SortField>('priority')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
 
-  const isLoading = promptsLoading || projectsLoading || competitorsLoading
-  const trackedBrand = projects?.[0]?.tracked_brand?.toLowerCase()
+  const isLoading = promptsLoading || projectLoading || competitorsLoading
+  const trackedBrand = project?.tracked_brand?.toLowerCase()
   const competitorNames = competitors?.map(c => c.name.toLowerCase()) || []
 
   // Analyze gaps - prompts where competitors are mentioned but brand isn't

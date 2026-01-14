@@ -142,6 +142,7 @@ export interface Prompt {
   search_volume?: number
   difficulty_score?: number
   visibility_pct?: number
+  last_collected_at?: string
   created_at: string
 }
 

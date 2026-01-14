@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useParams } from 'next/navigation'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -20,7 +21,6 @@ import {
 import { KeywordTable, KeywordCart } from '@/components/keywords'
 import {
   useKeywords,
-  useProjects,
   useAddKeyword,
   useAnalyzeKeywords,
   useCompetitorDomains,
@@ -289,29 +289,8 @@ function CompeteTab({ projectId }: { projectId: string }) {
 }
 
 export default function KeywordFuelerPage() {
-  const { data: projects, isLoading: projectsLoading } = useProjects()
-  const projectId = projects?.[0]?.id
-
-  if (projectsLoading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    )
-  }
-
-  if (!projectId) {
-    return (
-      <div className="flex flex-col gap-6 p-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Keyword Fueler</h1>
-          <p className="text-muted-foreground">
-            No project found. Please create a project first.
-          </p>
-        </div>
-      </div>
-    )
-  }
+  const params = useParams()
+  const brandId = params.brandId as string
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -325,7 +304,7 @@ export default function KeywordFuelerPage() {
             Discover, plan, and compete for keywords to fuel your AI visibility strategy
           </p>
         </div>
-        <KeywordCart projectId={projectId} />
+        <KeywordCart projectId={brandId} />
       </div>
 
       <Tabs defaultValue="mine" className="space-y-6">
@@ -345,15 +324,15 @@ export default function KeywordFuelerPage() {
         </TabsList>
 
         <TabsContent value="mine">
-          <MineTab projectId={projectId} />
+          <MineTab projectId={brandId} />
         </TabsContent>
 
         <TabsContent value="plan">
-          <PlanTab projectId={projectId} />
+          <PlanTab projectId={brandId} />
         </TabsContent>
 
         <TabsContent value="compete">
-          <CompeteTab projectId={projectId} />
+          <CompeteTab projectId={brandId} />
         </TabsContent>
       </Tabs>
     </div>

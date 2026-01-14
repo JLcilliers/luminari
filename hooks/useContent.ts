@@ -2,19 +2,29 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { GeneratedContent, ContentGenerationRequest, ContentStatus } from '@/lib/types'
 
-export function useGeneratedContent(limit = 20) {
+export function useGeneratedContent(projectId?: string, limit = 50) {
   return useQuery({
-    queryKey: ['generated-content', limit],
+    queryKey: ['generated-content', projectId, limit],
     queryFn: async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase as any)
         .from('generated_content')
-        .select('*, prompt:prompts(prompt_text)')
+        .select('*, prompt:prompts(prompt_text, monitor:monitors(project_id))')
         .order('created_at', { ascending: false })
         .limit(limit)
 
       if (error) throw error
-      return data as (GeneratedContent & { prompt?: { prompt_text: string } | null })[]
+
+      // Filter by projectId if provided
+      type ContentWithProject = GeneratedContent & {
+        prompt?: { prompt_text: string; monitor?: { project_id: string } | null } | null
+      }
+      let content = data as ContentWithProject[]
+      if (projectId) {
+        content = content.filter(c => c.prompt?.monitor?.project_id === projectId)
+      }
+
+      return content as (GeneratedContent & { prompt?: { prompt_text: string } | null })[]
     },
   })
 }
@@ -117,14 +127,14 @@ export interface ContentStats {
   avgSeoScore: number
 }
 
-export function useContentStats() {
+export function useContentStats(projectId?: string) {
   return useQuery({
-    queryKey: ['generated-content', 'stats'],
+    queryKey: ['generated-content', 'stats', projectId],
     queryFn: async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase as any)
         .from('generated_content')
-        .select('content_type, status, word_count, seo_score')
+        .select('content_type, status, word_count, seo_score, prompt:prompts(monitor:monitors(project_id))')
 
       if (error) throw error
       if (!data) return {
@@ -135,13 +145,26 @@ export function useContentStats() {
         avgSeoScore: 0,
       } as ContentStats
 
+      // Filter by projectId if provided
+      type ContentStatsItem = {
+        content_type: string
+        status: string
+        word_count: number | null
+        seo_score: number | null
+        prompt?: { monitor?: { project_id: string } | null } | null
+      }
+      let filteredData = data as ContentStatsItem[]
+      if (projectId) {
+        filteredData = filteredData.filter(item => item.prompt?.monitor?.project_id === projectId)
+      }
+
       const byType: Record<string, number> = {}
       const byStatus: Record<string, number> = {}
       let totalWordCount = 0
       let totalSeoScore = 0
       let seoScoreCount = 0
 
-      data.forEach((item: { content_type: string; status: string; word_count: number | null; seo_score: number | null }) => {
+      filteredData.forEach((item) => {
         byType[item.content_type] = (byType[item.content_type] || 0) + 1
         byStatus[item.status] = (byStatus[item.status] || 0) + 1
         totalWordCount += item.word_count || 0
@@ -152,10 +175,10 @@ export function useContentStats() {
       })
 
       return {
-        total: data.length,
+        total: filteredData.length,
         byType,
         byStatus,
-        avgWordCount: data.length > 0 ? Math.round(totalWordCount / data.length) : 0,
+        avgWordCount: filteredData.length > 0 ? Math.round(totalWordCount / filteredData.length) : 0,
         avgSeoScore: seoScoreCount > 0 ? Math.round(totalSeoScore / seoScoreCount) : 0,
       } as ContentStats
     },

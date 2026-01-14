@@ -87,8 +87,10 @@ export default function SetupPage() {
     setError(null);
 
     try {
-      await createProject.mutateAsync(brandBible);
-      router.push('/dashboard');
+      const result = await createProject.mutateAsync(brandBible);
+      // Redirect to the brand-scoped dashboard
+      const projectId = (result.project as { id: string }).id;
+      router.push(`/brand/${projectId}/dashboard`);
     } catch (err) {
       console.error('Create failed:', err);
       setError(err instanceof Error ? err.message : 'Failed to create project. Please try again.');

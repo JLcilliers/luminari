@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, Suspense } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -17,7 +17,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Search, Target, Sparkles, ArrowRight, Loader2, AlertCircle } from 'lucide-react'
 import { ContentGenerator } from '@/components/content/ContentGenerator'
-import { usePrompts, useResponses, useCompetitors, useProjects, type PromptWithResponses } from '@/hooks'
+import { usePrompts, useResponses, useCompetitors, useProject, type PromptWithResponses } from '@/hooks'
 
 interface GapAnalysis {
   promptId: string
@@ -55,19 +55,21 @@ export default function CreateContentPage() {
 }
 
 function CreateContentPageContent() {
+  const params = useParams()
+  const brandId = params.brandId as string
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  const { data: prompts, isLoading: promptsLoading } = usePrompts()
-  const { data: responses } = useResponses()
-  const { data: competitors } = useCompetitors()
-  const { data: projects } = useProjects()
+  const { data: prompts, isLoading: promptsLoading } = usePrompts(brandId)
+  const { data: responses } = useResponses(brandId)
+  const { data: competitors } = useCompetitors(brandId)
+  const { data: project } = useProject(brandId)
 
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedPrompt, setSelectedPrompt] = useState<GapAnalysis | null>(null)
   const [activeTab, setActiveTab] = useState<'gaps' | 'custom'>('gaps')
 
-  const brandName = projects?.[0]?.tracked_brand || ''
+  const brandName = project?.tracked_brand || ''
   const competitorNames = competitors?.map(c => c.name.toLowerCase()) || []
 
   // Calculate answer gaps
@@ -139,7 +141,7 @@ function CreateContentPageContent() {
 
   const handleContentGenerated = () => {
     // Redirect to content library after generation
-    router.push('/content-library')
+    router.push(`/brand/${brandId}/content-library`)
   }
 
   // Check if coming from answer-gaps page with a pre-selected prompt

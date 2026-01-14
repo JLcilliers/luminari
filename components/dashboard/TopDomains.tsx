@@ -3,13 +3,17 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Globe, Loader2, ExternalLink } from 'lucide-react'
-import { useCitationsByDomain, useProjects } from '@/hooks'
+import { useCitationsByDomain, useProject } from '@/hooks'
 
-export function TopDomains() {
-  const { data: domains, isLoading } = useCitationsByDomain()
-  const { data: projects } = useProjects()
-  const trackedDomain = projects?.[0]?.website_url
-    ? new URL(projects[0].website_url).hostname.replace('www.', '')
+interface TopDomainsProps {
+  projectId: string
+}
+
+export function TopDomains({ projectId }: TopDomainsProps) {
+  const { data: domains, isLoading } = useCitationsByDomain(projectId)
+  const { data: project } = useProject(projectId)
+  const trackedDomain = project?.website_url
+    ? new URL(project.website_url).hostname.replace('www.', '')
     : null
 
   // Calculate total citations for percentages

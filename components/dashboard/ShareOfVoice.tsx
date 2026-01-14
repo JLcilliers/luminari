@@ -12,15 +12,19 @@ import {
 } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Loader2, PieChart } from 'lucide-react'
-import { useBrandMentions, useProjects, useCompetitors } from '@/hooks'
+import { useBrandMentions, useProject, useCompetitors } from '@/hooks'
 
-export function ShareOfVoice() {
-  const { data: brandMentions, isLoading: mentionsLoading } = useBrandMentions()
-  const { data: projects, isLoading: projectsLoading } = useProjects()
-  const { data: competitors, isLoading: competitorsLoading } = useCompetitors(projects?.[0]?.id)
+interface ShareOfVoiceProps {
+  projectId: string
+}
 
-  const isLoading = mentionsLoading || projectsLoading || competitorsLoading
-  const trackedBrand = projects?.[0]?.tracked_brand
+export function ShareOfVoice({ projectId }: ShareOfVoiceProps) {
+  const { data: brandMentions, isLoading: mentionsLoading } = useBrandMentions(projectId)
+  const { data: project, isLoading: projectLoading } = useProject(projectId)
+  const { data: competitors, isLoading: competitorsLoading } = useCompetitors(projectId)
+
+  const isLoading = mentionsLoading || projectLoading || competitorsLoading
+  const trackedBrand = project?.tracked_brand
 
   // Build chart data from brand mentions
   const chartData = brandMentions?.slice(0, 6).map(item => {

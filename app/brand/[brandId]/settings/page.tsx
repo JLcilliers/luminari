@@ -1,17 +1,20 @@
 'use client'
 
+import { useParams } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Database, Key, Loader2, Map } from 'lucide-react'
-import { useProjects } from '@/hooks'
+import { useProject } from '@/hooks'
 import { BrandBookForm, CompetitorList, PersonaList } from '@/components/settings'
 
 export default function SettingsPage() {
-  const { data: projects, isLoading } = useProjects()
-  const project = projects?.[0] // Use first project for now
+  const params = useParams()
+  const brandId = params.brandId as string
+
+  const { data: project, isLoading } = useProject(brandId)
 
   if (isLoading) {
     return (
@@ -67,15 +70,15 @@ export default function SettingsPage() {
         </TabsList>
 
         <TabsContent value="brand-book" className="space-y-6 mt-6">
-          <BrandBookForm projectId={project.id} />
+          <BrandBookForm projectId={brandId} />
         </TabsContent>
 
         <TabsContent value="competitors" className="space-y-6 mt-6">
-          <CompetitorList projectId={project.id} />
+          <CompetitorList projectId={brandId} />
         </TabsContent>
 
         <TabsContent value="personas" className="space-y-6 mt-6">
-          <PersonaList projectId={project.id} />
+          <PersonaList projectId={brandId} />
         </TabsContent>
 
         <TabsContent value="sitemap" className="space-y-6 mt-6">

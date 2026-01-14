@@ -1,33 +1,33 @@
-'use client'
+'use client';
 
-import { useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Plus, MonitorDot, Loader2 } from 'lucide-react'
-import { useMonitors, useProjects } from '@/hooks'
-import { MonitorForm, MonitorCard } from '@/components/monitors'
-import type { Monitor } from '@/lib/types'
+import { useState } from 'react';
+import { useParams } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { Plus, MonitorDot, Loader2 } from 'lucide-react';
+import { useMonitors } from '@/hooks';
+import { MonitorForm, MonitorCard } from '@/components/monitors';
+import type { Monitor } from '@/lib/types';
 
 export default function MonitorsPage() {
-  const [formOpen, setFormOpen] = useState(false)
-  const [editingMonitor, setEditingMonitor] = useState<Monitor | null>(null)
+  const params = useParams();
+  const brandId = params.brandId as string;
 
-  const { data: monitors, isLoading: monitorsLoading } = useMonitors()
-  const { data: projects, isLoading: projectsLoading } = useProjects()
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingMonitor, setEditingMonitor] = useState<Monitor | null>(null);
 
-  const isLoading = monitorsLoading || projectsLoading
-  const defaultProjectId = projects?.[0]?.id || ''
+  const { data: monitors, isLoading } = useMonitors(brandId);
 
   const handleEdit = (monitor: Monitor) => {
-    setEditingMonitor(monitor)
-    setFormOpen(true)
-  }
+    setEditingMonitor(monitor);
+    setFormOpen(true);
+  };
 
   const handleCloseForm = (open: boolean) => {
-    setFormOpen(open)
+    setFormOpen(open);
     if (!open) {
-      setEditingMonitor(null)
+      setEditingMonitor(null);
     }
-  }
+  };
 
   if (isLoading) {
     return (
@@ -44,7 +44,7 @@ export default function MonitorsPage() {
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       </div>
-    )
+    );
   }
 
   // Empty state
@@ -74,16 +74,14 @@ export default function MonitorsPage() {
           </Button>
         </div>
 
-        {defaultProjectId && (
-          <MonitorForm
-            open={formOpen}
-            onOpenChange={handleCloseForm}
-            projectId={defaultProjectId}
-            monitor={editingMonitor || undefined}
-          />
-        )}
+        <MonitorForm
+          open={formOpen}
+          onOpenChange={handleCloseForm}
+          projectId={brandId}
+          monitor={editingMonitor || undefined}
+        />
       </div>
-    )
+    );
   }
 
   return (
@@ -111,14 +109,12 @@ export default function MonitorsPage() {
         ))}
       </div>
 
-      {defaultProjectId && (
-        <MonitorForm
-          open={formOpen}
-          onOpenChange={handleCloseForm}
-          projectId={defaultProjectId}
-          monitor={editingMonitor || undefined}
-        />
-      )}
+      <MonitorForm
+        open={formOpen}
+        onOpenChange={handleCloseForm}
+        projectId={brandId}
+        monitor={editingMonitor || undefined}
+      />
     </div>
-  )
+  );
 }

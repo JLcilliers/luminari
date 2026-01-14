@@ -13,8 +13,12 @@ import { AI_MODEL_COLORS, AI_MODEL_LABELS, type AIModel } from '@/lib/types'
 import { useResponseStats } from '@/hooks'
 import { PieChartIcon } from 'lucide-react'
 
-export function ModelDistribution() {
-  const { data: stats, isLoading } = useResponseStats()
+interface ModelDistributionProps {
+  projectId: string
+}
+
+export function ModelDistribution({ projectId }: ModelDistributionProps) {
+  const { data: stats, isLoading } = useResponseStats(projectId)
 
   // Convert byModel to chart data format
   const chartData = stats?.byModel

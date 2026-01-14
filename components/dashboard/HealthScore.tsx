@@ -4,12 +4,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 import { Loader2, TrendingUp, TrendingDown, Minus, AlertCircle, CheckCircle2, Lightbulb } from 'lucide-react'
-import { useHealthScore, useUpdateHealthScore, useProjects } from '@/hooks'
+import { useHealthScore, useUpdateHealthScore } from '@/hooks'
 import { getHealthScoreRating, HEALTH_SCORE_COLORS, type HealthScoreRating } from '@/lib/types'
 import { useEffect } from 'react'
 
 interface HealthScoreProps {
-  projectId?: string
+  projectId: string
 }
 
 function CircularProgress({ score, rating }: { score: number; rating: HealthScoreRating }) {
@@ -107,23 +107,19 @@ function BreakdownItem({
 }
 
 export function HealthScore({ projectId }: HealthScoreProps) {
-  // Get first project if no projectId provided
-  const { data: projects } = useProjects()
-  const activeProjectId = projectId || projects?.[0]?.id
-
-  const { data: healthData, isLoading, error } = useHealthScore(activeProjectId)
+  const { data: healthData, isLoading, error } = useHealthScore(projectId)
   const updateHealthScore = useUpdateHealthScore()
 
   // Update health score in database when calculated
   useEffect(() => {
-    if (healthData && activeProjectId) {
+    if (healthData && projectId) {
       updateHealthScore.mutate({
-        projectId: activeProjectId,
+        projectId,
         score: healthData.score,
       })
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [healthData?.score, activeProjectId])
+  }, [healthData?.score, projectId])
 
   if (isLoading) {
     return (
@@ -164,7 +160,7 @@ export function HealthScore({ projectId }: HealthScoreProps) {
             <AlertCircle className="h-12 w-12 text-muted-foreground mb-3" />
             <p className="text-muted-foreground">Unable to calculate health score</p>
             <p className="text-sm text-muted-foreground">
-              {activeProjectId ? 'Please try again later' : 'No project selected'}
+              Please try again later
             </p>
           </div>
         </CardContent>

@@ -1,10 +1,11 @@
-'use client'
+'use client';
 
-import { useState, useMemo } from 'react'
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Search, ExternalLink, TrendingUp, Link2, Loader2 } from 'lucide-react'
+import { useState, useMemo } from 'react';
+import { useParams } from 'next/navigation';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Search, ExternalLink, Link2, Loader2 } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -12,9 +13,9 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table'
-import { AI_MODEL_LABELS, AI_MODEL_COLORS, type AIModel } from '@/lib/types'
-import { useCitations, useCitationsByDomain, useCitationStats, useResponseStats, useProjects, type CitationWithResponse } from '@/hooks'
+} from '@/components/ui/table';
+import { AI_MODEL_LABELS, AI_MODEL_COLORS, type AIModel } from '@/lib/types';
+import { useCitations, useCitationsByDomain, useCitationStats, useResponseStats, useProject, type CitationWithResponse } from '@/hooks';
 
 function formatDate(dateString: string) {
   return new Date(dateString).toLocaleString('en-US', {
@@ -22,51 +23,54 @@ function formatDate(dateString: string) {
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
-  })
+  });
 }
 
 export default function CitationsPage() {
-  const { data: citations, isLoading: citationsLoading } = useCitations()
-  const { data: citationsByDomain, isLoading: domainsLoading } = useCitationsByDomain()
-  const { data: citationStats, isLoading: statsLoading } = useCitationStats()
-  const { data: responseStats } = useResponseStats()
-  const { data: projects } = useProjects()
+  const params = useParams();
+  const brandId = params.brandId as string;
 
-  const [searchQuery, setSearchQuery] = useState('')
+  const { data: citations, isLoading: citationsLoading } = useCitations(brandId);
+  const { data: citationsByDomain, isLoading: domainsLoading } = useCitationsByDomain(brandId);
+  const { data: citationStats, isLoading: statsLoading } = useCitationStats(brandId);
+  const { data: responseStats } = useResponseStats(brandId);
+  const { data: project } = useProject(brandId);
 
-  const trackedDomain = projects?.[0]?.website_url
-    ? new URL(projects[0].website_url).hostname.replace('www.', '')
-    : null
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const trackedDomain = project?.website_url
+    ? new URL(project.website_url).hostname.replace('www.', '')
+    : null;
 
   // Calculate your domain citations
   const yourDomainCitations = useMemo(() => {
-    if (!citationsByDomain || !trackedDomain) return 0
+    if (!citationsByDomain || !trackedDomain) return 0;
     const match = citationsByDomain.find(d =>
       d.domain.replace('www.', '').includes(trackedDomain)
-    )
-    return match?.count || 0
-  }, [citationsByDomain, trackedDomain])
+    );
+    return match?.count || 0;
+  }, [citationsByDomain, trackedDomain]);
 
   // Calculate citation rate
-  const citationRate = responseStats?.citationRate || 0
+  const citationRate = responseStats?.citationRate || 0;
 
   // Filter citations based on search
   const filteredCitations = useMemo(() => {
-    if (!citations) return []
-    if (!searchQuery) return citations
+    if (!citations) return [];
+    if (!searchQuery) return citations;
 
-    const query = searchQuery.toLowerCase()
+    const query = searchQuery.toLowerCase();
     return citations.filter((c: CitationWithResponse) => {
-      const promptText = c.response?.prompt?.prompt_text || ''
+      const promptText = c.response?.prompt?.prompt_text || '';
       return (
         c.cited_domain.toLowerCase().includes(query) ||
         (c.citation_context && c.citation_context.toLowerCase().includes(query)) ||
         promptText.toLowerCase().includes(query)
-      )
-    })
-  }, [citations, searchQuery])
+      );
+    });
+  }, [citations, searchQuery]);
 
-  const isLoading = citationsLoading || domainsLoading || statsLoading
+  const isLoading = citationsLoading || domainsLoading || statsLoading;
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -169,7 +173,7 @@ export default function CitationsPage() {
             ) : citationsByDomain && citationsByDomain.length > 0 ? (
               <div className="space-y-4">
                 {citationsByDomain.slice(0, 5).map((item, index) => {
-                  const isTrackedDomain = trackedDomain && item.domain.replace('www.', '').includes(trackedDomain)
+                  const isTrackedDomain = trackedDomain && item.domain.replace('www.', '').includes(trackedDomain);
                   return (
                     <div key={item.domain} className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
@@ -195,7 +199,7 @@ export default function CitationsPage() {
                       </div>
                       <span className="text-sm font-medium">{item.count}</span>
                     </div>
-                  )
+                  );
                 })}
               </div>
             ) : (
@@ -241,7 +245,7 @@ export default function CitationsPage() {
                 </TableHeader>
                 <TableBody>
                   {filteredCitations.slice(0, 10).map((citation: CitationWithResponse) => {
-                    const aiModel = citation.response?.ai_model || 'chatgpt'
+                    const aiModel = citation.response?.ai_model || 'chatgpt';
 
                     return (
                       <TableRow key={citation.id}>
@@ -269,18 +273,18 @@ export default function CitationsPage() {
                           <Badge
                             variant="outline"
                             style={{
-                              borderColor: AI_MODEL_COLORS[aiModel],
-                              color: AI_MODEL_COLORS[aiModel],
+                              borderColor: AI_MODEL_COLORS[aiModel as AIModel],
+                              color: AI_MODEL_COLORS[aiModel as AIModel],
                             }}
                           >
-                            {AI_MODEL_LABELS[aiModel]}
+                            {AI_MODEL_LABELS[aiModel as AIModel]}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
                           {formatDate(citation.created_at)}
                         </TableCell>
                       </TableRow>
-                    )
+                    );
                   })}
                 </TableBody>
               </Table>
@@ -297,5 +301,5 @@ export default function CitationsPage() {
         </Card>
       </div>
     </div>
-  )
+  );
 }

@@ -18,15 +18,15 @@ export interface ResponseWithPrompt {
   } | null
 }
 
-export function useResponses(promptId?: string) {
+export function useResponses(projectId?: string, promptId?: string) {
   return useQuery({
-    queryKey: ['responses', promptId],
+    queryKey: ['responses', projectId, promptId],
     queryFn: async () => {
       let query = supabase
         .from('responses')
-        .select('*, prompt:prompts(prompt_text)')
+        .select('*, prompt:prompts(prompt_text, monitor:monitors(project_id))')
         .order('collected_at', { ascending: false })
-        .limit(50)
+        .limit(100)
 
       if (promptId) {
         query = query.eq('prompt_id', promptId)
@@ -34,7 +34,17 @@ export function useResponses(promptId?: string) {
 
       const { data, error } = await query
       if (error) throw error
-      return data as ResponseWithPrompt[]
+
+      // Filter by projectId if provided (through prompt → monitor relationship)
+      type ResponseWithMonitor = ResponseWithPrompt & {
+        prompt?: { prompt_text: string; monitor?: { project_id: string } | null } | null
+      }
+      let responses = data as ResponseWithMonitor[]
+      if (projectId) {
+        responses = responses.filter(r => r.prompt?.monitor?.project_id === projectId)
+      }
+
+      return responses as ResponseWithPrompt[]
     },
   })
 }
@@ -64,24 +74,30 @@ export interface ResponseStats {
   citations: number
 }
 
-export function useResponseStats() {
+export function useResponseStats(projectId?: string) {
   return useQuery({
-    queryKey: ['responses', 'stats'],
+    queryKey: ['responses', 'stats', projectId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('responses')
-        .select('ai_model, mentions_brand, cites_domain')
-        .returns<{ ai_model: string; mentions_brand: boolean; cites_domain: boolean }[]>()
+        .select('ai_model, mentions_brand, cites_domain, prompt:prompts(monitor:monitors(project_id))')
+        .returns<{ ai_model: string; mentions_brand: boolean; cites_domain: boolean; prompt?: { monitor?: { project_id: string } | null } | null }[]>()
 
       if (error) throw error
       if (!data) return { total: 0, byModel: {}, mentions: 0, citations: 0, mentionRate: 0, citationRate: 0 } as ResponseStats
 
-      const total = data.length
+      // Filter by projectId if provided
+      let filteredData = data
+      if (projectId) {
+        filteredData = data.filter(r => r.prompt?.monitor?.project_id === projectId)
+      }
+
+      const total = filteredData.length
       const byModel: Record<string, number> = {}
       let mentions = 0
       let citations = 0
 
-      data.forEach(r => {
+      filteredData.forEach(r => {
         byModel[r.ai_model] = (byModel[r.ai_model] || 0) + 1
         if (r.mentions_brand) mentions++
         if (r.cites_domain) citations++
@@ -99,18 +115,30 @@ export function useResponseStats() {
   })
 }
 
-export function useRecentResponses(limit = 10) {
+export function useRecentResponses(projectId?: string, limit = 10) {
   return useQuery({
-    queryKey: ['responses', 'recent', limit],
+    queryKey: ['responses', 'recent', projectId, limit],
     queryFn: async () => {
+      type RecentResponse = ResponseWithPrompt & {
+        prompt?: { prompt_text: string; monitor?: { name: string; project_id: string } | null } | null
+      }
       const { data, error } = await supabase
         .from('responses')
-        .select('*, prompt:prompts(prompt_text, monitor:monitors(name))')
+        .select('*, prompt:prompts(prompt_text, monitor:monitors(name, project_id))')
         .order('collected_at', { ascending: false })
-        .limit(limit)
+        .limit(limit * 2) // Fetch more to allow for filtering
+        .returns<RecentResponse[]>()
 
       if (error) throw error
-      return data
+      if (!data) return []
+
+      // Filter by projectId if provided
+      let responses = data
+      if (projectId) {
+        responses = responses.filter(r => r.prompt?.monitor?.project_id === projectId)
+      }
+
+      return responses.slice(0, limit)
     },
   })
 }
@@ -120,21 +148,27 @@ export interface BrandMentionCount {
   count: number
 }
 
-export function useBrandMentions() {
+export function useBrandMentions(projectId?: string) {
   return useQuery({
-    queryKey: ['responses', 'brand-mentions'],
+    queryKey: ['responses', 'brand-mentions', projectId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('responses')
-        .select('brands_mentioned')
-        .returns<{ brands_mentioned: string[] | null }[]>()
+        .select('brands_mentioned, prompt:prompts(monitor:monitors(project_id))')
+        .returns<{ brands_mentioned: string[] | null; prompt?: { monitor?: { project_id: string } | null } | null }[]>()
 
       if (error) throw error
       if (!data) return []
 
+      // Filter by projectId if provided
+      let filteredData = data
+      if (projectId) {
+        filteredData = data.filter(r => r.prompt?.monitor?.project_id === projectId)
+      }
+
       // Count brand mentions
       const brandCounts: Record<string, number> = {}
-      data.forEach(r => {
+      filteredData.forEach(r => {
         if (r.brands_mentioned) {
           r.brands_mentioned.forEach(brand => {
             brandCounts[brand] = (brandCounts[brand] || 0) + 1

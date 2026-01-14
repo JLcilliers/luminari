@@ -4,9 +4,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { MessageSquare, Link2, Eye, ThumbsUp, Loader2 } from 'lucide-react'
 import { useResponseStats, useAggregatedMetrics } from '@/hooks'
 
-export function StatsCards() {
-  const { data: stats, isLoading: statsLoading } = useResponseStats()
-  const { data: metrics, isLoading: metricsLoading } = useAggregatedMetrics()
+interface StatsCardsProps {
+  projectId: string
+}
+
+export function StatsCards({ projectId }: StatsCardsProps) {
+  const { data: stats, isLoading: statsLoading } = useResponseStats(projectId)
+  const { data: metrics, isLoading: metricsLoading } = useAggregatedMetrics(projectId)
 
   const isLoading = statsLoading || metricsLoading
 

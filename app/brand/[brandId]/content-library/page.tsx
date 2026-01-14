@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -96,8 +97,11 @@ function getStatusBadgeVariant(status: ContentStatus): 'default' | 'secondary' |
 }
 
 export default function ContentLibraryPage() {
-  const { data: content, isLoading } = useGeneratedContent()
-  const { data: stats } = useContentStats()
+  const params = useParams()
+  const brandId = params.brandId as string
+
+  const { data: content, isLoading } = useGeneratedContent(brandId)
+  const { data: stats } = useContentStats(brandId)
   const deleteContent = useDeleteContent()
   const updateStatus = useUpdateContentStatus()
 
@@ -165,7 +169,7 @@ export default function ContentLibraryPage() {
           </p>
         </div>
         <Button asChild>
-          <Link href="/create-content">
+          <Link href={`/brand/${brandId}/create-content`}>
             <Plus className="mr-2 h-4 w-4" />
             Create Content
           </Link>
@@ -288,7 +292,7 @@ export default function ContentLibraryPage() {
                   : 'Try adjusting your filters'}
               </p>
               <Button asChild className="mt-4">
-                <Link href="/create-content">
+                <Link href={`/brand/${brandId}/create-content`}>
                   <Plus className="mr-2 h-4 w-4" />
                   Create Content
                 </Link>

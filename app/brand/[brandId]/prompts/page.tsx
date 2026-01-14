@@ -1,10 +1,11 @@
-'use client'
+'use client';
 
-import { useState, useMemo } from 'react'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Plus, Search, ArrowUpDown, Loader2 } from 'lucide-react'
-import { Input } from '@/components/ui/input'
+import { useState, useMemo } from 'react';
+import { useParams } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Plus, Search, ArrowUpDown, Loader2 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import {
   Table,
   TableBody,
@@ -12,32 +13,35 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table'
+} from '@/components/ui/table';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
-import { usePrompts, useMonitors } from '@/hooks'
+} from '@/components/ui/select';
+import { usePrompts, useMonitors } from '@/hooks';
 
-type SortField = 'prompt_text' | 'search_volume' | 'difficulty_score' | 'visibility_pct' | 'responses'
-type SortDirection = 'asc' | 'desc'
+type SortField = 'prompt_text' | 'search_volume' | 'difficulty_score' | 'visibility_pct' | 'responses';
+type SortDirection = 'asc' | 'desc';
 
 export default function PromptsPage() {
-  const { data: prompts, isLoading } = usePrompts()
-  const { data: monitors } = useMonitors()
+  const params = useParams();
+  const brandId = params.brandId as string;
 
-  const [searchQuery, setSearchQuery] = useState('')
-  const [monitorFilter, setMonitorFilter] = useState('all')
-  const [intentFilter, setIntentFilter] = useState('all')
-  const [sortField, setSortField] = useState<SortField>('visibility_pct')
-  const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
+  const { data: prompts, isLoading } = usePrompts(brandId);
+  const { data: monitors } = useMonitors(brandId);
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [monitorFilter, setMonitorFilter] = useState('all');
+  const [intentFilter, setIntentFilter] = useState('all');
+  const [sortField, setSortField] = useState<SortField>('visibility_pct');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
   // Transform and filter data
   const filteredPrompts = useMemo(() => {
-    if (!prompts) return []
+    if (!prompts) return [];
 
     return prompts
       .map(p => ({
@@ -51,55 +55,55 @@ export default function PromptsPage() {
       .filter(p => {
         // Search filter
         if (searchQuery && !p.prompt_text.toLowerCase().includes(searchQuery.toLowerCase())) {
-          return false
+          return false;
         }
         // Monitor filter
         if (monitorFilter !== 'all' && p.monitor_id !== monitorFilter) {
-          return false
+          return false;
         }
         // Intent filter
         if (intentFilter !== 'all' && p.intent_type !== intentFilter) {
-          return false
+          return false;
         }
-        return true
+        return true;
       })
       .sort((a, b) => {
-        let comparison = 0
+        let comparison = 0;
         switch (sortField) {
           case 'prompt_text':
-            comparison = a.prompt_text.localeCompare(b.prompt_text)
-            break
+            comparison = a.prompt_text.localeCompare(b.prompt_text);
+            break;
           case 'search_volume':
-            comparison = (a.search_volume || 0) - (b.search_volume || 0)
-            break
+            comparison = (a.search_volume || 0) - (b.search_volume || 0);
+            break;
           case 'difficulty_score':
-            comparison = (a.difficulty_score || 0) - (b.difficulty_score || 0)
-            break
+            comparison = (a.difficulty_score || 0) - (b.difficulty_score || 0);
+            break;
           case 'visibility_pct':
-            comparison = (a.visibility_pct || 0) - (b.visibility_pct || 0)
-            break
+            comparison = (a.visibility_pct || 0) - (b.visibility_pct || 0);
+            break;
           case 'responses':
-            comparison = a.responses_count - b.responses_count
-            break
+            comparison = a.responses_count - b.responses_count;
+            break;
         }
-        return sortDirection === 'asc' ? comparison : -comparison
-      })
-  }, [prompts, searchQuery, monitorFilter, intentFilter, sortField, sortDirection])
+        return sortDirection === 'asc' ? comparison : -comparison;
+      });
+  }, [prompts, searchQuery, monitorFilter, intentFilter, sortField, sortDirection]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
-      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
     } else {
-      setSortField(field)
-      setSortDirection('desc')
+      setSortField(field);
+      setSortDirection('desc');
     }
-  }
+  };
 
   const formatVolume = (volume: number | undefined) => {
-    if (!volume) return '—'
-    if (volume >= 1000) return `${(volume / 1000).toFixed(1)}K`
-    return volume.toString()
-  }
+    if (!volume) return '—';
+    if (volume >= 1000) return `${(volume / 1000).toFixed(1)}K`;
+    return volume.toString();
+  };
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -285,5 +289,5 @@ export default function PromptsPage() {
         )}
       </div>
     </div>
-  )
+  );
 }

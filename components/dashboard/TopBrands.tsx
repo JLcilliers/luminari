@@ -3,12 +3,16 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Building2, Loader2, TrendingUp } from 'lucide-react'
-import { useBrandMentions, useProjects } from '@/hooks'
+import { useBrandMentions, useProject } from '@/hooks'
 
-export function TopBrands() {
-  const { data: brandMentions, isLoading } = useBrandMentions()
-  const { data: projects } = useProjects()
-  const trackedBrand = projects?.[0]?.tracked_brand
+interface TopBrandsProps {
+  projectId: string
+}
+
+export function TopBrands({ projectId }: TopBrandsProps) {
+  const { data: brandMentions, isLoading } = useBrandMentions(projectId)
+  const { data: project } = useProject(projectId)
+  const trackedBrand = project?.tracked_brand
 
   // Calculate total mentions for percentages
   const totalMentions = brandMentions?.reduce((sum, b) => sum + b.count, 0) || 0

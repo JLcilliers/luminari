@@ -1,22 +1,21 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Rocket, Loader2, RefreshCw, Target, Fuel } from 'lucide-react'
 import { LaunchpadStats, LaunchpadTable, LaunchpadFilters } from '@/components/launchpad'
 import {
-  useProjects,
   useLaunchpadItems,
   useLaunchpadStats,
 } from '@/hooks'
 import type { LaunchpadFilters as Filters, LaunchpadItem } from '@/lib/types'
 
 export default function VisibilityLaunchpadPage() {
+  const params = useParams()
+  const brandId = params.brandId as string
   const router = useRouter()
-  const { data: projects, isLoading: projectsLoading } = useProjects()
-  const projectId = projects?.[0]?.id
 
   const [filters, setFilters] = useState<Filters>({
     source: 'all',
@@ -30,45 +29,24 @@ export default function VisibilityLaunchpadPage() {
     data: items,
     isLoading: itemsLoading,
     refetch: refetchItems,
-  } = useLaunchpadItems(projectId, filters)
+  } = useLaunchpadItems(brandId, filters)
 
-  const { data: stats, isLoading: statsLoading } = useLaunchpadStats(projectId)
+  const { data: stats, isLoading: statsLoading } = useLaunchpadStats(brandId)
 
   const handleCreateContent = (item: LaunchpadItem) => {
     // Navigate to create-content page with pre-filled data
-    const params = new URLSearchParams()
-    params.set('source', item.source)
-    params.set('title', item.title)
+    const searchParams = new URLSearchParams()
+    searchParams.set('source', item.source)
+    searchParams.set('title', item.title)
 
     if (item.source === 'answer_gap' && item.original_prompt) {
-      params.set('promptId', item.original_prompt.id)
+      searchParams.set('promptId', item.original_prompt.id)
     } else if (item.source === 'keyword_fueler' && item.original_keyword) {
-      params.set('keywordId', item.original_keyword.id)
-      params.set('keyword', item.original_keyword.keyword)
+      searchParams.set('keywordId', item.original_keyword.id)
+      searchParams.set('keyword', item.original_keyword.keyword)
     }
 
-    router.push(`/create-content?${params.toString()}`)
-  }
-
-  if (projectsLoading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    )
-  }
-
-  if (!projectId) {
-    return (
-      <div className="flex flex-col gap-6 p-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Visibility Launchpad</h1>
-          <p className="text-muted-foreground">
-            No project found. Please create a project first.
-          </p>
-        </div>
-      </div>
-    )
+    router.push(`/brand/${brandId}/create-content?${searchParams.toString()}`)
   }
 
   return (
@@ -146,7 +124,7 @@ export default function VisibilityLaunchpadPage() {
           <LaunchpadTable
             items={items || []}
             isLoading={itemsLoading}
-            projectId={projectId}
+            projectId={brandId}
             onCreateContent={handleCreateContent}
             emptyMessage={
               filters.source === 'answer_gap'
