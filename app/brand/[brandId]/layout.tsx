@@ -9,7 +9,6 @@ import {
   ArrowLeft,
   LayoutDashboard,
   BookOpen,
-  MonitorDot,
   MessageSquare,
   FileText,
   Link2,
@@ -23,22 +22,24 @@ import {
   ChevronLeft,
   ChevronRight,
   Loader2,
-  Zap,
+  BarChart3,
+  Wand2,
 } from 'lucide-react';
 import { useState } from 'react';
 
 const navigation = [
   { name: 'Dashboard', href: 'dashboard', icon: LayoutDashboard },
   { name: 'Brand Bible', href: 'brand-bible', icon: BookOpen },
-  { name: 'Monitors', href: 'monitors', icon: MonitorDot },
   { name: 'Prompts', href: 'prompts', icon: MessageSquare },
   { name: 'Responses', href: 'responses', icon: FileText },
   { name: 'Citations', href: 'citations', icon: Link2 },
   { name: 'Sentiment', href: 'sentiment', icon: Smile },
   { name: 'Answer Gaps', href: 'answer-gaps', icon: Target },
+  { name: 'Keyword Intel', href: 'keyword-intel', icon: BarChart3 },
   { name: 'Keyword Fueler', href: 'keyword-fueler', icon: Fuel },
   { name: 'Launchpad', href: 'visibility-launchpad', icon: Rocket },
   { name: 'Create Content', href: 'create-content', icon: PenTool },
+  { name: 'Content Optimizer', href: 'content-optimizer', icon: Wand2 },
   { name: 'Content Library', href: 'content-library', icon: Library },
 ];
 

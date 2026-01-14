@@ -157,6 +157,18 @@ export async function POST(request: NextRequest) {
 
     console.log(`Bulk collection complete. Results:`, results);
 
+    // Update visibility metrics after collection
+    if (projectId) {
+      await updateVisibilityMetrics(projectId);
+    } else if (monitorId && prompts.length > 0) {
+      // Get projectId from the first prompt's monitor
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const monitorData = prompts[0].monitors as any;
+      if (monitorData?.project_id) {
+        await updateVisibilityMetrics(monitorData.project_id);
+      }
+    }
+
     return NextResponse.json({
       success: true,
       results,
@@ -241,4 +253,67 @@ function extractDomain(url: string): string | null {
 
 function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// Update visibility_metrics table after collection
+async function updateVisibilityMetrics(projectId: string): Promise<void> {
+  try {
+    // Get all responses for this project
+    const { data: prompts } = await supabase
+      .from('prompts')
+      .select('id, monitors!inner(project_id)')
+      .eq('monitors.project_id', projectId);
+
+    if (!prompts || prompts.length === 0) return;
+
+    const promptIds = prompts.map(p => p.id);
+
+    // Get response stats
+    const { data: responses } = await supabase
+      .from('responses')
+      .select('mentions_brand, cites_domain, sentiment_score')
+      .in('prompt_id', promptIds);
+
+    if (!responses || responses.length === 0) return;
+
+    const total = responses.length;
+    const mentions = responses.filter(r => r.mentions_brand).length;
+    const citations = responses.filter(r => r.cites_domain).length;
+
+    // Calculate average sentiment (only from non-null values)
+    const sentimentValues = responses
+      .map(r => r.sentiment_score)
+      .filter((s): s is number => s !== null);
+    const avgSentiment = sentimentValues.length > 0
+      ? sentimentValues.reduce((sum, s) => sum + s, 0) / sentimentValues.length
+      : 0.5; // Default to neutral
+
+    // Calculate visibility score (weighted: mentions 60%, citations 40%)
+    const mentionRate = total > 0 ? (mentions / total) * 100 : 0;
+    const citationRate = total > 0 ? (citations / total) * 100 : 0;
+    const visibilityScore = (mentionRate * 0.6) + (citationRate * 0.4);
+
+    const today = new Date().toISOString().split('T')[0];
+
+    // Upsert to visibility_metrics
+    const { error } = await supabase
+      .from('visibility_metrics')
+      .upsert({
+        project_id: projectId,
+        prompt_id: null, // Aggregate metrics for the whole project
+        date: today,
+        visibility_score: Math.round(visibilityScore * 10) / 10,
+        mention_count: mentions,
+        citation_count: citations,
+        sentiment_avg: Math.round(avgSentiment * 100) / 100,
+      }, { onConflict: 'project_id,prompt_id,date' });
+
+    if (error) {
+      console.error('Error updating visibility_metrics:', error);
+    } else {
+      console.log(`Updated visibility_metrics for project ${projectId}: score=${visibilityScore.toFixed(1)}, mentions=${mentions}, citations=${citations}`);
+    }
+  } catch (error) {
+    console.error('Error in updateVisibilityMetrics:', error);
+  }
 }

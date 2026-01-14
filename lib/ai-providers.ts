@@ -109,7 +109,7 @@ async function queryClaude(prompt: string): Promise<AIResponse> {
 async function queryGemini(prompt: string): Promise<AIResponse> {
   try {
     const google = getGoogleAI();
-    const model = google.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const model = google.getGenerativeModel({ model: 'gemini-2.0-flash' });
     const result = await model.generateContent(prompt);
     const response = await result.response;
     const text = response.text();
@@ -141,7 +141,7 @@ async function queryPerplexity(prompt: string): Promise<AIResponse> {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'llama-3.1-sonar-small-128k-online',
+        model: 'sonar',
         messages: [{ role: 'user', content: prompt }],
         max_tokens: 2000,
       }),
@@ -223,14 +223,37 @@ export function checkBrandMention(text: string, brandName: string): boolean {
   const lowerText = text.toLowerCase();
   const lowerBrand = brandName.toLowerCase();
 
-  // Check for exact match or common variations
-  const variations = [
-    lowerBrand,
-    lowerBrand.replace(/\s+/g, ''),
-    lowerBrand.replace(/\s+/g, '-'),
+  // Build variations to check
+  const variations: string[] = [
+    lowerBrand,                           // "bill allen law"
+    lowerBrand.replace(/\s+/g, ''),       // "billallenlaw"
+    lowerBrand.replace(/\s+/g, '-'),      // "bill-allen-law"
   ];
 
-  return variations.some(v => lowerText.includes(v));
+  // Add partial matches for multi-word brands
+  const words = lowerBrand.split(/\s+/);
+  if (words.length >= 2) {
+    // First two words (e.g., "bill allen")
+    variations.push(words.slice(0, 2).join(' '));
+    // Last two words (e.g., "allen law")
+    variations.push(words.slice(-2).join(' '));
+    // Without common suffixes like "law", "firm", "inc", "llc"
+    const withoutSuffix = words.filter(w => !['law', 'firm', 'inc', 'llc', 'llp', 'pc', 'pllc', 'group', 'associates'].includes(w));
+    if (withoutSuffix.length >= 1) {
+      variations.push(withoutSuffix.join(' '));
+    }
+  }
+
+  // Check for "brand + law firm" or "brand + firm" variations
+  if (!lowerBrand.includes('firm')) {
+    variations.push(lowerBrand.replace(' law', ' law firm'));
+    variations.push(lowerBrand + ' firm');
+  }
+
+  // Filter out very short variations (less than 4 chars) to avoid false positives
+  const filteredVariations = variations.filter(v => v.length >= 4);
+
+  return filteredVariations.some(v => lowerText.includes(v));
 }
 
 // Check if domain is cited in response

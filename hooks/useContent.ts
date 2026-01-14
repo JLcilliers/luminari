@@ -184,3 +184,165 @@ export function useContentStats(projectId?: string) {
     },
   })
 }
+
+// Content Optimizer Hooks
+
+export interface OptimizationTask {
+  id: string
+  project_id: string
+  keyword_id: string | null
+  target_url: string
+  target_keyword: string
+  current_position: number | null
+  target_position: number
+  page_content: string | null
+  ai_analysis: ContentAnalysis | null
+  recommendations: OptimizationRecommendation[] | null
+  status: 'pending' | 'analyzing' | 'optimized' | 'published' | 'failed'
+  priority: 'low' | 'medium' | 'high' | 'critical'
+  created_at: string
+  updated_at: string
+}
+
+export interface ContentAnalysis {
+  seoScore: number
+  readabilityScore: number
+  keywordDensity: number
+  wordCount: number
+  recommendations: OptimizationRecommendation[]
+  optimizedTitle?: string
+  optimizedMetaDescription?: string
+  suggestedHeadings?: string[]
+  suggestedKeywords?: string[]
+}
+
+export interface OptimizationRecommendation {
+  category: string
+  priority: 'high' | 'medium' | 'low'
+  title: string
+  description: string
+  currentState?: string
+  suggestedFix?: string
+}
+
+export function useOptimizationTasks(projectId?: string, status?: string) {
+  return useQuery({
+    queryKey: ['optimization-tasks', projectId, status],
+    queryFn: async () => {
+      const params = new URLSearchParams({ projectId: projectId! })
+      if (status) params.set('status', status)
+
+      const response = await fetch(`/api/content/optimize?${params}`)
+      if (!response.ok) {
+        throw new Error('Failed to fetch optimization tasks')
+      }
+      const data = await response.json()
+      return data.tasks as OptimizationTask[]
+    },
+    enabled: !!projectId,
+  })
+}
+
+export function useAnalyzeContent() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({
+      projectId,
+      targetUrl,
+      targetKeyword,
+      pageContent,
+    }: {
+      projectId: string
+      targetUrl?: string
+      targetKeyword: string
+      pageContent?: string
+    }) => {
+      const response = await fetch('/api/content/optimize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId,
+          targetUrl,
+          targetKeyword,
+          pageContent,
+          action: 'analyze',
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to analyze content')
+      }
+
+      return response.json()
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['optimization-tasks', variables.projectId] })
+    },
+  })
+}
+
+export function useGenerateOptimizedContent() {
+  return useMutation({
+    mutationFn: async ({
+      projectId,
+      targetKeyword,
+      pageContent,
+    }: {
+      projectId: string
+      targetKeyword: string
+      pageContent?: string
+    }) => {
+      const response = await fetch('/api/content/optimize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId,
+          targetKeyword,
+          pageContent,
+          action: 'generate-content',
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to generate content')
+      }
+
+      return response.json()
+    },
+  })
+}
+
+export function useQuickSuggestions() {
+  return useMutation({
+    mutationFn: async ({
+      projectId,
+      targetKeyword,
+      pageContent,
+    }: {
+      projectId: string
+      targetKeyword: string
+      pageContent: string
+    }) => {
+      const response = await fetch('/api/content/optimize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId,
+          targetKeyword,
+          pageContent,
+          action: 'get-suggestions',
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to get suggestions')
+      }
+
+      return response.json()
+    },
+  })
+}

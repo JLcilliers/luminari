@@ -1111,7 +1111,8 @@ export default function KeywordIntelPage() {
         status: 'pending',
       }))
 
-      const { error } = await supabase.from('optimization_tasks').insert(tasks)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase.from('optimization_tasks') as any).insert(tasks)
 
       if (error) throw error
 
