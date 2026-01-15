@@ -276,6 +276,15 @@ export interface GeneratedContent {
   meta_description?: string
   created_at: string
   updated_at: string
+  // Pipeline columns
+  content_markdown?: string
+  content_html?: string
+  content_json?: Record<string, unknown>
+  schema_json?: Record<string, unknown>
+  faq_schema?: Record<string, unknown>
+  article_schema?: Record<string, unknown>
+  readability_score?: number
+  pipeline_metadata?: Record<string, unknown>
 }
 
 export interface ContentGenerationRequest {

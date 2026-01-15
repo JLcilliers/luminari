@@ -109,7 +109,12 @@ export default function ContentLibraryPage() {
   const [typeFilter, setTypeFilter] = useState<string>('all')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [selectedContent, setSelectedContent] = useState<(GeneratedContent & { prompt?: { prompt_text: string } | null }) | null>(null)
-  const [copied, setCopied] = useState(false)
+  const [copiedType, setCopiedType] = useState<'markdown' | 'html' | null>(null)
+
+  // Helper to get display content (prefer pipeline columns over legacy)
+  const getDisplayContent = (item: GeneratedContent) => {
+    return item.content_markdown || item.content_html || item.content || ''
+  }
 
   const filteredContent = useMemo(() => {
     if (!content) return []
@@ -118,8 +123,9 @@ export default function ContentLibraryPage() {
       // Search filter
       if (searchQuery) {
         const query = searchQuery.toLowerCase()
+        const displayContent = getDisplayContent(item)
         if (!item.title.toLowerCase().includes(query) &&
-            !item.content.toLowerCase().includes(query)) {
+            !displayContent.toLowerCase().includes(query)) {
           return false
         }
       }
@@ -138,11 +144,11 @@ export default function ContentLibraryPage() {
     })
   }, [content, searchQuery, typeFilter, statusFilter])
 
-  const handleCopyContent = async (text: string) => {
+  const handleCopyContent = async (text: string, type: 'markdown' | 'html') => {
     try {
       await navigator.clipboard.writeText(text)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+      setCopiedType(type)
+      setTimeout(() => setCopiedType(null), 2000)
     } catch (err) {
       console.error('Failed to copy:', err)
     }
@@ -382,16 +388,19 @@ export default function ContentLibraryPage() {
               <DialogHeader>
                 <DialogTitle>{selectedContent.title}</DialogTitle>
                 <DialogDescription>
-                  <div className="flex items-center gap-2 mt-2">
+                  <div className="flex items-center gap-2 mt-2 flex-wrap">
                     <Badge variant="outline">
                       {CONTENT_TYPES.find(t => t.value === selectedContent.content_type)?.label}
                     </Badge>
                     <Badge variant={getStatusBadgeVariant(selectedContent.status)}>
                       {CONTENT_STATUS_LABELS[selectedContent.status]}
                     </Badge>
-                    <span className="text-sm">{selectedContent.word_count} words</span>
+                    <span className="text-sm">{selectedContent.word_count.toLocaleString()} words</span>
                     {selectedContent.seo_score !== undefined && (
-                      <span className="text-sm">SEO: {selectedContent.seo_score}%</span>
+                      <span className="text-sm text-green-600 font-medium">SEO: {selectedContent.seo_score}%</span>
+                    )}
+                    {selectedContent.readability_score !== undefined && (
+                      <span className="text-sm text-blue-600 font-medium">Readability: {selectedContent.readability_score}%</span>
                     )}
                   </div>
                 </DialogDescription>
@@ -420,9 +429,16 @@ export default function ContentLibraryPage() {
 
                 {/* Content */}
                 <div className="border rounded-lg p-4 max-h-[400px] overflow-y-auto">
-                  <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap">
-                    {selectedContent.content}
-                  </div>
+                  {selectedContent.content_html ? (
+                    <div
+                      className="prose prose-sm dark:prose-invert max-w-none"
+                      dangerouslySetInnerHTML={{ __html: selectedContent.content_html }}
+                    />
+                  ) : (
+                    <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap">
+                      {selectedContent.content_markdown || selectedContent.content || 'No content available'}
+                    </div>
+                  )}
                 </div>
 
                 {/* Actions */}
@@ -445,22 +461,45 @@ export default function ContentLibraryPage() {
                     </Select>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => handleCopyContent(selectedContent.content)}
-                    >
-                      {copied ? (
-                        <>
-                          <CheckCircle className="mr-2 h-4 w-4" />
-                          Copied!
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="mr-2 h-4 w-4" />
-                          Copy Content
-                        </>
-                      )}
-                    </Button>
+                    {(selectedContent.content_markdown || selectedContent.content) && (
+                      <Button
+                        variant="outline"
+                        onClick={() => handleCopyContent(
+                          selectedContent.content_markdown || selectedContent.content || '',
+                          'markdown'
+                        )}
+                      >
+                        {copiedType === 'markdown' ? (
+                          <>
+                            <CheckCircle className="mr-2 h-4 w-4" />
+                            Copied!
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="mr-2 h-4 w-4" />
+                            Copy Markdown
+                          </>
+                        )}
+                      </Button>
+                    )}
+                    {selectedContent.content_html && (
+                      <Button
+                        variant="outline"
+                        onClick={() => handleCopyContent(selectedContent.content_html!, 'html')}
+                      >
+                        {copiedType === 'html' ? (
+                          <>
+                            <CheckCircle className="mr-2 h-4 w-4" />
+                            Copied!
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="mr-2 h-4 w-4" />
+                            Copy HTML
+                          </>
+                        )}
+                      </Button>
+                    )}
                     <Button
                       variant="destructive"
                       onClick={() => handleDelete(selectedContent.id)}
