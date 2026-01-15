@@ -350,7 +350,7 @@ export const HEALTH_SCORE_COLORS: Record<HealthScoreRating, string> = {
 // Phase 5B: Keyword Fueler Types
 // ==========================================
 
-export type KeywordSource = 'mine' | 'plan' | 'compete' | 'manual'
+export type KeywordSource = 'mine' | 'plan' | 'compete' | 'manual' | 'gsc' | 'dataforseo'
 export type KeywordIntent = 'informational' | 'commercial' | 'transactional' | 'navigational'
 export type KeywordTrend = 'up' | 'down' | 'stable'
 
@@ -359,6 +359,8 @@ export const KEYWORD_SOURCE_LABELS: Record<KeywordSource, string> = {
   plan: 'Planning',
   compete: 'Competitive',
   manual: 'Manual',
+  gsc: 'Google Search Console',
+  dataforseo: 'DataForSEO',
 }
 
 export const KEYWORD_INTENT_LABELS: Record<KeywordIntent, string> = {
@@ -395,6 +397,12 @@ export interface Keyword {
   content_created: boolean
   last_updated: string
   created_at: string
+  // GSC data fields
+  gsc_clicks?: number
+  gsc_impressions?: number
+  gsc_ctr?: number
+  gsc_position?: number
+  gsc_last_synced?: string
 }
 
 export interface KeywordCartItem {
@@ -599,4 +607,57 @@ export interface CrawlStats {
   sitemapFound: boolean
   duration: number
   pageTypes: Record<string, number>
+}
+
+// ==========================================
+// Google Integration Types
+// ==========================================
+
+export interface GoogleConnection {
+  id: string
+  project_id: string
+  google_email: string
+  google_sub?: string
+  access_token: string
+  refresh_token?: string
+  token_expiry: string
+  scopes?: string[]
+  gsc_property?: string
+  ga4_property?: string
+  connected_at: string
+  updated_at: string
+}
+
+export interface GSCProperty {
+  siteUrl: string
+  permissionLevel: string
+}
+
+export interface GA4Property {
+  name: string
+  id: string
+  displayName: string
+}
+
+export interface GA4Account {
+  name: string
+  id: string
+  properties: GA4Property[]
+}
+
+export interface GSCKeywordData {
+  keyword: string
+  clicks: number
+  impressions: number
+  ctr: number
+  position: number
+  url?: string
+}
+
+export interface GSCPageData {
+  url: string
+  clicks: number
+  impressions: number
+  ctr: number
+  position: number
 }

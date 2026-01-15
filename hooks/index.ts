@@ -133,3 +133,12 @@ export {
   useCreateProject as useCreateProjectFromBrandBible,
   useHasProject,
 } from './useOnboarding'
+
+// Google Integration
+export {
+  useGoogleConnection,
+  useUpdateGoogleProperties,
+  useDisconnectGoogle,
+  useGSCKeywords,
+  useImportGSCKeywords,
+} from './useGoogleConnection'

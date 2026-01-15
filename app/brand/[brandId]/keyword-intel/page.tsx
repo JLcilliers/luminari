@@ -46,6 +46,9 @@ import {
   useKeywordResearch,
   useCompetitors,
   useProject,
+  useGoogleConnection,
+  useGSCKeywords,
+  useImportGSCKeywords,
 } from '@/hooks'
 import { cn } from '@/lib/utils'
 import type { Keyword } from '@/lib/types'
@@ -682,6 +685,256 @@ function AIDiscoveryTab({
   )
 }
 
+// GSC Import Tab
+function GSCImportTab({
+  projectId,
+  onKeywordsImported,
+}: {
+  projectId: string
+  onKeywordsImported: () => void
+}) {
+  const { data: googleConnection, isLoading: connectionLoading } = useGoogleConnection(projectId)
+  const { data: gscData, isLoading: gscLoading, refetch: refetchGSC } = useGSCKeywords(
+    projectId,
+    !!googleConnection?.connection?.gsc_property
+  )
+  const importKeywords = useImportGSCKeywords()
+
+  const [selectedKeywords, setSelectedKeywords] = useState<Set<number>>(new Set())
+
+  const keywords = gscData?.keywords || []
+
+  const toggleSelection = (index: number) => {
+    const newSelected = new Set(selectedKeywords)
+    if (newSelected.has(index)) {
+      newSelected.delete(index)
+    } else {
+      newSelected.add(index)
+    }
+    setSelectedKeywords(newSelected)
+  }
+
+  const selectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedKeywords(new Set(keywords.map((_, i) => i)))
+    } else {
+      setSelectedKeywords(new Set())
+    }
+  }
+
+  const handleImport = async () => {
+    const selected = keywords.filter((_, i) => selectedKeywords.has(i))
+    if (selected.length === 0) return
+
+    try {
+      await importKeywords.mutateAsync({
+        projectId,
+        keywords: selected,
+      })
+      toast.success(`Imported ${selected.length} keywords from Google Search Console`)
+      setSelectedKeywords(new Set())
+      onKeywordsImported()
+    } catch (error) {
+      toast.error('Failed to import keywords')
+    }
+  }
+
+  if (connectionLoading) {
+    return (
+      <Card>
+        <CardContent className="py-12 flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </CardContent>
+      </Card>
+    )
+  }
+
+  // Not connected
+  if (!googleConnection?.connection) {
+    return (
+      <Card>
+        <CardContent className="py-12">
+          <div className="text-center">
+            <svg className="h-12 w-12 mx-auto mb-4 opacity-50" viewBox="0 0 24 24">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+            </svg>
+            <h3 className="text-lg font-medium mb-2">Connect Google Search Console</h3>
+            <p className="text-muted-foreground mb-4">
+              Connect your Google account to import your actual keyword rankings
+            </p>
+            <Button
+              onClick={() => window.location.href = `/brand/${projectId}/settings?tab=google`}
+            >
+              Go to Settings
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  // Connected but no property selected
+  if (!googleConnection.connection.gsc_property) {
+    return (
+      <Card>
+        <CardContent className="py-12">
+          <div className="text-center">
+            <svg className="h-12 w-12 mx-auto mb-4 opacity-50" viewBox="0 0 24 24">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+            </svg>
+            <h3 className="text-lg font-medium mb-2">Select a Search Console Property</h3>
+            <p className="text-muted-foreground mb-4">
+              Please select a Search Console property in Settings to import keywords
+            </p>
+            <Button
+              onClick={() => window.location.href = `/brand/${projectId}/settings?tab=google`}
+            >
+              Go to Settings
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  // Loading GSC data
+  if (gscLoading) {
+    return (
+      <Card>
+        <CardContent className="py-12 flex items-center justify-center">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mx-auto mb-2" />
+            <p className="text-muted-foreground">Loading Search Console data...</p>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  // No keywords found
+  if (keywords.length === 0) {
+    return (
+      <Card>
+        <CardContent className="py-12">
+          <div className="text-center">
+            <Target className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+            <h3 className="text-lg font-medium mb-2">No Keywords Found</h3>
+            <p className="text-muted-foreground mb-4">
+              No keyword data found in Google Search Console for the selected property
+            </p>
+            <Button variant="outline" onClick={() => refetchGSC()}>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  // Show keywords
+  return (
+    <Card>
+      <CardHeader className="bg-blue-50 border-b">
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="text-blue-800 flex items-center gap-2">
+              <svg className="h-5 w-5" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+              </svg>
+              Google Search Console Keywords
+            </CardTitle>
+            <CardDescription className="text-blue-700">
+              {keywords.length} keywords from {gscData?.property?.replace('sc-domain:', '')} ({gscData?.dateRange?.start} to {gscData?.dateRange?.end})
+            </CardDescription>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => refetchGSC()}>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
+            <Button
+              onClick={handleImport}
+              disabled={selectedKeywords.size === 0 || importKeywords.isPending}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {importKeywords.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <CheckCircle2 className="h-4 w-4 mr-2" />
+              )}
+              Import Selected ({selectedKeywords.size})
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="p-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-10">
+                <Checkbox
+                  checked={selectedKeywords.size === keywords.length && keywords.length > 0}
+                  onCheckedChange={(checked) => selectAll(!!checked)}
+                />
+              </TableHead>
+              <TableHead>Keyword</TableHead>
+              <TableHead>Clicks</TableHead>
+              <TableHead>Impressions</TableHead>
+              <TableHead>CTR</TableHead>
+              <TableHead>Position</TableHead>
+              <TableHead>URL</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {keywords.slice(0, 100).map((kw, i) => (
+              <TableRow key={i}>
+                <TableCell>
+                  <Checkbox
+                    checked={selectedKeywords.has(i)}
+                    onCheckedChange={() => toggleSelection(i)}
+                  />
+                </TableCell>
+                <TableCell className="font-medium">{kw.keyword}</TableCell>
+                <TableCell className="text-blue-600 font-medium">{kw.clicks}</TableCell>
+                <TableCell>{kw.impressions.toLocaleString()}</TableCell>
+                <TableCell>{(kw.ctr * 100).toFixed(1)}%</TableCell>
+                <TableCell>
+                  <span className={cn(
+                    kw.position <= 3 ? 'text-green-600 font-bold' :
+                    kw.position <= 10 ? 'text-blue-600' :
+                    kw.position <= 20 ? 'text-yellow-600' :
+                    'text-muted-foreground'
+                  )}>
+                    {kw.position.toFixed(1)}
+                  </span>
+                </TableCell>
+                <TableCell className="text-sm text-muted-foreground truncate max-w-[200px]">
+                  {kw.url?.replace(/https?:\/\/[^/]+/, '') || '-'}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+        {keywords.length > 100 && (
+          <p className="text-sm text-muted-foreground text-center py-4">
+            Showing 100 of {keywords.length} keywords
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
 // Manual Entry Tab
 function ManualEntryTab({
   projectId,
@@ -915,7 +1168,7 @@ export default function KeywordIntelPage() {
   const keywords = (keywordsArray || []) as Keyword[]
 
   // State
-  const [activeTab, setActiveTab] = useState<'overview' | 'domain' | 'discover' | 'manual' | 'research'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'domain' | 'discover' | 'gsc' | 'manual' | 'research'>('overview')
   const [selectedKeywords, setSelectedKeywords] = useState<Set<string>>(new Set())
 
   // Import states
@@ -1328,6 +1581,15 @@ export default function KeywordIntelPage() {
               <Badge variant="secondary" className="ml-1">{discoveredKeywords.length}</Badge>
             )}
           </TabsTrigger>
+          <TabsTrigger value="gsc" className="flex items-center gap-2">
+            <svg className="h-4 w-4" viewBox="0 0 24 24">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+            </svg>
+            Search Console
+          </TabsTrigger>
           <TabsTrigger value="manual" className="flex items-center gap-2">
             <Plus className="h-4 w-4" />
             Add Keywords
@@ -1379,6 +1641,13 @@ export default function KeywordIntelPage() {
               setDiscoveredKeywords(discoveredKeywords.map(k => ({ ...k, selected: selectAll })))
             }}
             saving={savingKeywords}
+          />
+        </TabsContent>
+
+        <TabsContent value="gsc">
+          <GSCImportTab
+            projectId={brandId}
+            onKeywordsImported={() => refetchKeywords()}
           />
         </TabsContent>
 

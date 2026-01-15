@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Database, Loader2, Map } from 'lucide-react'
 import { useProject } from '@/hooks'
-import { CompetitorList, PersonaList } from '@/components/settings'
+import { CompetitorList, PersonaList, GoogleConnectionCard } from '@/components/settings'
 
 export default function SettingsPage() {
   const params = useParams()
@@ -63,6 +63,7 @@ export default function SettingsPage() {
         <TabsList>
           <TabsTrigger value="competitors">Competitors</TabsTrigger>
           <TabsTrigger value="personas">Personas</TabsTrigger>
+          <TabsTrigger value="google">Google</TabsTrigger>
           <TabsTrigger value="sitemap">Sitemap</TabsTrigger>
           <TabsTrigger value="database">Database</TabsTrigger>
         </TabsList>
@@ -73,6 +74,10 @@ export default function SettingsPage() {
 
         <TabsContent value="personas" className="space-y-6 mt-6">
           <PersonaList projectId={brandId} />
+        </TabsContent>
+
+        <TabsContent value="google" className="space-y-6 mt-6">
+          <GoogleConnectionCard projectId={brandId} />
         </TabsContent>
 
         <TabsContent value="sitemap" className="space-y-6 mt-6">
