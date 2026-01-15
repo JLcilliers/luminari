@@ -67,7 +67,11 @@ export async function GET(request: NextRequest) {
     const formatDate = (d: Date) => d.toISOString().split('T')[0]
 
     // Fetch search analytics data by page
-    const siteUrl = connection.gsc_property.replace('sc-domain:', 'domain:')
+    // Use the GSC property URL as-is (either sc-domain:example.com or https://example.com/)
+    const siteUrl = connection.gsc_property
+
+    console.log('[GSC Pages API] Fetching pages for property:', siteUrl)
+    console.log('[GSC Pages API] Date range:', formatDate(startDate), 'to', formatDate(endDate))
 
     const response = await fetch(
       `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(siteUrl)}/searchAnalytics/query`,
@@ -88,12 +92,34 @@ export async function GET(request: NextRequest) {
     )
 
     if (!response.ok) {
-      const error = await response.text()
-      console.error('GSC API error:', error)
-      return NextResponse.json({ error: 'Failed to fetch GSC pages data' }, { status: 500 })
+      const errorText = await response.text()
+      console.error('[GSC Pages API] Error response:', response.status, errorText)
+
+      // Parse error for more context
+      let errorMessage = 'Failed to fetch GSC pages data'
+      try {
+        const errorJson = JSON.parse(errorText)
+        if (errorJson.error?.message) {
+          errorMessage = errorJson.error.message
+        }
+        if (errorJson.error?.status === 'PERMISSION_DENIED') {
+          errorMessage = 'Permission denied. Please ensure the Search Console property is verified and accessible.'
+        } else if (errorJson.error?.status === 'NOT_FOUND') {
+          errorMessage = 'Search Console property not found. Please verify the property exists.'
+        }
+      } catch {
+        // Keep default error message
+      }
+
+      return NextResponse.json({
+        error: errorMessage,
+        details: errorText,
+        property: siteUrl
+      }, { status: response.status })
     }
 
     const data = await response.json()
+    console.log('[GSC Pages API] Success - found', data.rows?.length || 0, 'pages')
 
     // Transform to our format
     const pages: GSCPageData[] = (data.rows || []).map((row: {

@@ -97,11 +97,17 @@ export function useGSCKeywords(projectId: string, enabled: boolean = true) {
     queryKey: ['gsc-keywords', projectId],
     queryFn: async () => {
       const response = await fetch(`/api/google/gsc?projectId=${projectId}`)
-      if (!response.ok) throw new Error('Failed to fetch GSC keywords')
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        const errorMessage = errorData.error || 'Failed to fetch GSC keywords'
+        console.error('[useGSCKeywords] Error:', errorMessage, errorData)
+        throw new Error(errorMessage)
+      }
       return response.json()
     },
     enabled: enabled && !!projectId,
     staleTime: 300000, // 5 minutes
+    retry: false, // Don't retry on failure for better UX
   })
 }
 
@@ -154,11 +160,17 @@ export function useGSCPages(projectId: string, days: number = 28, enabled: boole
     queryKey: ['gsc-pages', projectId, days],
     queryFn: async () => {
       const response = await fetch(`/api/google/gsc/pages?projectId=${projectId}&days=${days}`)
-      if (!response.ok) throw new Error('Failed to fetch GSC pages')
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        const errorMessage = errorData.error || 'Failed to fetch GSC pages'
+        console.error('[useGSCPages] Error:', errorMessage, errorData)
+        throw new Error(errorMessage)
+      }
       return response.json()
     },
     enabled: enabled && !!projectId,
     staleTime: 300000, // 5 minutes
+    retry: false, // Don't retry on failure for better UX
   })
 }
 

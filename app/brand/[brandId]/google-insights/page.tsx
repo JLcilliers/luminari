@@ -181,11 +181,11 @@ function SearchConsoleTab({ projectId }: { projectId: string }) {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
 
   const { data: googleConnection } = useGoogleConnection(projectId)
-  const { data: gscData, isLoading: gscLoading, refetch: refetchGSC } = useGSCKeywords(
+  const { data: gscData, isLoading: gscLoading, error: gscError, refetch: refetchGSC } = useGSCKeywords(
     projectId,
     !!googleConnection?.connection?.gsc_property
   )
-  const { data: pagesData, isLoading: pagesLoading, refetch: refetchPages } = useGSCPages(
+  const { data: pagesData, isLoading: pagesLoading, error: pagesError, refetch: refetchPages } = useGSCPages(
     projectId,
     parseInt(dateRange),
     !!googleConnection?.connection?.gsc_property
@@ -194,6 +194,7 @@ function SearchConsoleTab({ projectId }: { projectId: string }) {
   const importKeywords = useImportGSCKeywords()
 
   const isLoading = gscLoading || pagesLoading
+  const hasError = gscError || pagesError
 
   // Check which keywords already exist
   const existingKeywordSet = useMemo(() => {
@@ -330,6 +331,38 @@ function SearchConsoleTab({ projectId }: { projectId: string }) {
         <Skeleton className="h-[300px]" />
         <Skeleton className="h-[400px]" />
       </div>
+    )
+  }
+
+  // Error state
+  if (hasError) {
+    const errorMessage = (gscError as Error)?.message || (pagesError as Error)?.message || 'Failed to load Search Console data'
+    console.error('[GSC Error]', gscError, pagesError)
+    return (
+      <Card className="border-destructive border-2">
+        <CardContent className="py-12">
+          <div className="flex flex-col items-center text-center">
+            <div className="p-4 rounded-full bg-destructive/10 mb-4">
+              <svg className="h-12 w-12 text-destructive" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold mb-2 text-destructive">Error Loading Search Console Data</h3>
+            <p className="text-muted-foreground mb-4 max-w-md">
+              {errorMessage}
+            </p>
+            <div className="flex gap-3">
+              <Button variant="outline" onClick={handleRefresh}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Try Again
+              </Button>
+              <Link href={`/brand/${projectId}/settings?tab=google`}>
+                <Button variant="secondary">Check Settings</Button>
+              </Link>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     )
   }
 

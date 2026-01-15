@@ -5,7 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { AlertCircle, CheckCircle2, ExternalLink, Info, Loader2, Unplug } from 'lucide-react'
+import { AlertCircle, CheckCircle2, ExternalLink, Info, Loader2, Unplug, Check } from 'lucide-react'
+import { toast } from 'sonner'
 import { useGoogleConnection, useUpdateGoogleProperties, useDisconnectGoogle } from '@/hooks'
 
 interface GoogleConnectionCardProps {
@@ -19,6 +20,7 @@ export function GoogleConnectionCard({ projectId }: GoogleConnectionCardProps) {
 
   const [selectedGSC, setSelectedGSC] = useState<string | null>(null)
   const [selectedGA4, setSelectedGA4] = useState<string | null>(null)
+  const [saveSuccess, setSaveSuccess] = useState(false)
 
   // Initialize selected values when data loads
   useEffect(() => {
@@ -53,11 +55,19 @@ export function GoogleConnectionCard({ projectId }: GoogleConnectionCardProps) {
   }
 
   const handleUpdateProperties = async () => {
-    await updateProperties.mutateAsync({
-      projectId,
-      gscProperty: selectedGSC,
-      ga4Property: selectedGA4,
-    })
+    try {
+      await updateProperties.mutateAsync({
+        projectId,
+        gscProperty: selectedGSC,
+        ga4Property: selectedGA4,
+      })
+      setSaveSuccess(true)
+      toast.success('Properties saved successfully')
+      // Reset success state after 3 seconds
+      setTimeout(() => setSaveSuccess(false), 3000)
+    } catch (error) {
+      toast.error('Failed to save properties. Please try again.')
+    }
   }
 
   if (isLoading) {
@@ -208,11 +218,14 @@ export function GoogleConnectionCard({ projectId }: GoogleConnectionCardProps) {
                 <Button
                   onClick={handleUpdateProperties}
                   disabled={updateProperties.isPending}
+                  className={saveSuccess ? 'bg-green-600 hover:bg-green-700' : ''}
                 >
                   {updateProperties.isPending ? (
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : saveSuccess ? (
+                    <Check className="h-4 w-4 mr-2" />
                   ) : null}
-                  Save Properties
+                  {updateProperties.isPending ? 'Saving...' : saveSuccess ? 'Saved!' : 'Save Properties'}
                 </Button>
               </div>
             </div>

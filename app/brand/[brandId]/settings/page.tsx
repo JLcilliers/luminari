@@ -1,6 +1,6 @@
 'use client'
 
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -12,7 +12,13 @@ import { CompetitorList, PersonaList, GoogleConnectionCard } from '@/components/
 
 export default function SettingsPage() {
   const params = useParams()
+  const searchParams = useSearchParams()
   const brandId = params.brandId as string
+
+  // Get tab from URL parameter, default to 'competitors'
+  const tabParam = searchParams.get('tab')
+  const validTabs = ['competitors', 'personas', 'google', 'sitemap', 'database']
+  const defaultTab = tabParam && validTabs.includes(tabParam) ? tabParam : 'competitors'
 
   const { data: project, isLoading } = useProject(brandId)
 
@@ -59,7 +65,7 @@ export default function SettingsPage() {
         </p>
       </div>
 
-      <Tabs defaultValue="competitors" className="w-full">
+      <Tabs defaultValue={defaultTab} className="w-full">
         <TabsList>
           <TabsTrigger value="competitors">Competitors</TabsTrigger>
           <TabsTrigger value="personas">Personas</TabsTrigger>

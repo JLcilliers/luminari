@@ -68,7 +68,11 @@ export async function GET(request: NextRequest) {
     const formatDate = (d: Date) => d.toISOString().split('T')[0]
 
     // Fetch search analytics data
-    const siteUrl = connection.gsc_property.replace('sc-domain:', 'domain:')
+    // Use the GSC property URL as-is (either sc-domain:example.com or https://example.com/)
+    const siteUrl = connection.gsc_property
+
+    console.log('[GSC API] Fetching data for property:', siteUrl)
+    console.log('[GSC API] Date range:', formatDate(startDate), 'to', formatDate(endDate))
 
     const response = await fetch(
       `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(siteUrl)}/searchAnalytics/query`,
@@ -89,12 +93,35 @@ export async function GET(request: NextRequest) {
     )
 
     if (!response.ok) {
-      const error = await response.text()
-      console.error('GSC API error:', error)
-      return NextResponse.json({ error: 'Failed to fetch GSC data' }, { status: 500 })
+      const errorText = await response.text()
+      console.error('[GSC API] Error response:', response.status, errorText)
+
+      // Parse error for more context
+      let errorMessage = 'Failed to fetch GSC data'
+      try {
+        const errorJson = JSON.parse(errorText)
+        if (errorJson.error?.message) {
+          errorMessage = errorJson.error.message
+        }
+        // Check for common issues
+        if (errorJson.error?.status === 'PERMISSION_DENIED') {
+          errorMessage = 'Permission denied. Please ensure the Search Console property is verified and accessible.'
+        } else if (errorJson.error?.status === 'NOT_FOUND') {
+          errorMessage = 'Search Console property not found. Please verify the property exists.'
+        }
+      } catch {
+        // Keep default error message
+      }
+
+      return NextResponse.json({
+        error: errorMessage,
+        details: errorText,
+        property: siteUrl
+      }, { status: response.status })
     }
 
     const data = await response.json()
+    console.log('[GSC API] Success - found', data.rows?.length || 0, 'rows')
 
     // Transform to our format
     const keywords: GSCKeywordData[] = (data.rows || []).map((row: {
