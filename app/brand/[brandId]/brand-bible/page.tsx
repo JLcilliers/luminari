@@ -42,11 +42,15 @@ import {
   RefreshCw,
   Check,
   Wand2,
+  Download,
+  FileJson,
+  FileText,
 } from 'lucide-react'
 import { useProject, useUpdateProject } from '@/hooks'
 import type { BrandVoice } from '@/lib/types'
 import { BRAND_VOICE_OPTIONS } from '@/lib/types'
 import { toast } from 'sonner'
+import { exportBrandBibleAsPDF, exportBrandBibleAsJSON } from '@/lib/export-utils'
 
 // Reusable component for array inputs (tags)
 function ArrayInput({
@@ -254,6 +258,32 @@ export default function BrandBiblePage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            onClick={() => {
+              if (project) {
+                exportBrandBibleAsJSON(project)
+                toast.success('JSON file downloaded')
+              }
+            }}
+            disabled={!project}
+          >
+            <FileJson className="mr-2 h-4 w-4" />
+            Download JSON
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              if (project) {
+                exportBrandBibleAsPDF(project)
+                toast.success('PDF file downloaded')
+              }
+            }}
+            disabled={!project}
+          >
+            <FileText className="mr-2 h-4 w-4" />
+            Download PDF
+          </Button>
           <Button
             variant="outline"
             onClick={() => setShowEnhanceDialog(true)}
