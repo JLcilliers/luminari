@@ -7,24 +7,22 @@ export function useGeneratedContent(projectId?: string, limit = 50) {
     queryKey: ['generated-content', projectId, limit],
     queryFn: async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      let query = (supabase as any)
         .from('generated_content')
         .select('*, prompt:prompts(prompt_text, monitor:monitors(project_id))')
         .order('created_at', { ascending: false })
         .limit(limit)
 
+      // Filter by project_id directly if provided (works for pipeline-generated content)
+      if (projectId) {
+        query = query.eq('project_id', projectId)
+      }
+
+      const { data, error } = await query
+
       if (error) throw error
 
-      // Filter by projectId if provided
-      type ContentWithProject = GeneratedContent & {
-        prompt?: { prompt_text: string; monitor?: { project_id: string } | null } | null
-      }
-      let content = data as ContentWithProject[]
-      if (projectId) {
-        content = content.filter(c => c.prompt?.monitor?.project_id === projectId)
-      }
-
-      return content as (GeneratedContent & { prompt?: { prompt_text: string } | null })[]
+      return data as (GeneratedContent & { prompt?: { prompt_text: string } | null })[]
     },
   })
 }
@@ -132,9 +130,16 @@ export function useContentStats(projectId?: string) {
     queryKey: ['generated-content', 'stats', projectId],
     queryFn: async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      let query = (supabase as any)
         .from('generated_content')
-        .select('content_type, status, word_count, seo_score, prompt:prompts(monitor:monitors(project_id))')
+        .select('content_type, status, word_count, seo_score')
+
+      // Filter by project_id directly if provided
+      if (projectId) {
+        query = query.eq('project_id', projectId)
+      }
+
+      const { data, error } = await query
 
       if (error) throw error
       if (!data) return {
@@ -145,18 +150,13 @@ export function useContentStats(projectId?: string) {
         avgSeoScore: 0,
       } as ContentStats
 
-      // Filter by projectId if provided
       type ContentStatsItem = {
         content_type: string
         status: string
         word_count: number | null
         seo_score: number | null
-        prompt?: { monitor?: { project_id: string } | null } | null
       }
-      let filteredData = data as ContentStatsItem[]
-      if (projectId) {
-        filteredData = filteredData.filter(item => item.prompt?.monitor?.project_id === projectId)
-      }
+      const filteredData = data as ContentStatsItem[]
 
       const byType: Record<string, number> = {}
       const byStatus: Record<string, number> = {}
