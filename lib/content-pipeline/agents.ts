@@ -289,30 +289,21 @@ function generateHtml(content: EditedContent, schema: GeneratedSchema): string {
 function generateJson(
   content: EditedContent,
   schema: GeneratedSchema
-): Record<string, unknown> {
+): ContentOutput['json'] {
   return {
     meta: {
       title: content.metaTitle,
       description: content.metaDescription,
-      wordCount: content.totalWordCount,
-      seoScore: content.seoScore,
-      readabilityScore: content.readabilityScore,
+      keywords: [], // Could be extracted from content in the future
     },
     content: {
       title: content.title,
       introduction: content.introduction,
-      sections: content.sections.map((s) => ({
-        heading: s.heading,
-        content: s.content,
-        wordCount: s.wordCount,
-      })),
+      sections: content.sections,
       conclusion: content.conclusion,
       faqs: content.faqs,
     },
-    schema: {
-      article: schema.article,
-      faq: schema.faq,
-    },
+    schema: schema,
   };
 }
 
