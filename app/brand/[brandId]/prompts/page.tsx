@@ -3,8 +3,9 @@
 import { useState, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
-import { Search, ArrowUpDown, Loader2 } from 'lucide-react';
+import { Search, ArrowUpDown, Loader2, Upload } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import {
   Table,
   TableBody,
@@ -22,6 +23,10 @@ import {
 } from '@/components/ui/select';
 import { usePrompts, useMonitors } from '@/hooks';
 import { AddPromptDialog } from '@/components/prompts';
+import { ExcelUpload } from '@/components/ui/excel-upload';
+import { PROMPT_COLUMNS, ParsedRow } from '@/lib/excel-utils';
+import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
 
 type SortField = 'prompt_text' | 'search_volume' | 'difficulty_score' | 'visibility_pct' | 'responses';
 type SortDirection = 'asc' | 'desc';
@@ -29,6 +34,7 @@ type SortDirection = 'asc' | 'desc';
 export default function PromptsPage() {
   const params = useParams();
   const brandId = params.brandId as string;
+  const queryClient = useQueryClient();
 
   const { data: prompts, isLoading } = usePrompts(brandId);
   const { data: monitors } = useMonitors(brandId);
@@ -38,6 +44,41 @@ export default function PromptsPage() {
   const [intentFilter, setIntentFilter] = useState('all');
   const [sortField, setSortField] = useState<SortField>('visibility_pct');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+
+  // Get existing prompt texts for duplicate detection
+  const existingPromptTexts = useMemo(() => {
+    if (!prompts) return new Set<string>();
+    return new Set(prompts.map(p => p.prompt_text.toLowerCase().trim()));
+  }, [prompts]);
+
+  // Handle bulk import
+  const handleBulkImport = async (rows: ParsedRow[]): Promise<{ success: number; failed: number }> => {
+    try {
+      const response = await fetch('/api/prompts/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId: brandId,
+          prompts: rows.map(r => r.data),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Bulk import failed');
+      }
+
+      const result = await response.json();
+
+      // Refresh prompts list
+      queryClient.invalidateQueries({ queryKey: ['prompts', brandId] });
+
+      toast.success(`Successfully imported ${result.success} prompts`);
+      return result;
+    } catch (error) {
+      toast.error('Failed to import prompts');
+      throw error;
+    }
+  };
 
   // Transform and filter data
   const filteredPrompts = useMemo(() => {
@@ -114,7 +155,24 @@ export default function PromptsPage() {
             Manage prompts used to query AI models
           </p>
         </div>
-        <AddPromptDialog projectId={brandId} />
+        <div className="flex items-center gap-2">
+          <ExcelUpload
+            columns={PROMPT_COLUMNS}
+            onImport={handleBulkImport}
+            templateName="prompts-template"
+            title="Bulk Import Prompts"
+            description="Upload an Excel or CSV file to import multiple prompts at once."
+            uniqueKey="prompt_text"
+            existingValues={existingPromptTexts}
+            trigger={
+              <Button variant="outline">
+                <Upload className="mr-2 h-4 w-4" />
+                Upload Excel
+              </Button>
+            }
+          />
+          <AddPromptDialog projectId={brandId} />
+        </div>
       </div>
 
       <div className="flex items-center gap-4">

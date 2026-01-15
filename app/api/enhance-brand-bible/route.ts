@@ -50,14 +50,6 @@ export async function POST(request: NextRequest) {
     // Generate enhanced Brand Bible
     const enhancedData = await enhanceBrandBible(currentData, project);
 
-    // Save the enhancement as part of the project's history
-    await supabase
-      .from('projects')
-      .update({
-        last_ai_enhancement: new Date().toISOString(),
-      })
-      .eq('id', projectId);
-
     return NextResponse.json({
       success: true,
       enhancedData,

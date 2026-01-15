@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -35,7 +35,11 @@ import {
   Zap,
   TrendingUp,
   CheckCircle2,
+  Upload,
 } from 'lucide-react'
+import { ExcelUpload } from '@/components/ui/excel-upload'
+import { KEYWORD_COLUMNS, ParsedRow } from '@/lib/excel-utils'
+import { toast } from 'sonner'
 import {
   useKeywords,
   useSyncKeywords,
@@ -131,6 +135,7 @@ function KeywordSourceButtons({
   onScanDomain,
   onAIDiscovery,
   onManualEntry,
+  onUploadExcel,
   importingBrandBible,
   scanningDomain,
   discoveringKeywords,
@@ -139,12 +144,13 @@ function KeywordSourceButtons({
   onScanDomain: () => void
   onAIDiscovery: () => void
   onManualEntry: () => void
+  onUploadExcel: () => void
   importingBrandBible: boolean
   scanningDomain: boolean
   discoveringKeywords: boolean
 }) {
   return (
-    <div className="grid grid-cols-4 gap-4">
+    <div className="grid grid-cols-5 gap-4">
       <button
         onClick={onImportBrandBible}
         disabled={importingBrandBible}
@@ -196,6 +202,19 @@ function KeywordSourceButtons({
         <div className="text-center">
           <div className="font-medium">AI Discovery</div>
           <div className="text-sm text-muted-foreground">Generate ideas</div>
+        </div>
+      </button>
+
+      <button
+        onClick={onUploadExcel}
+        className="flex flex-col items-center gap-3 p-6 bg-background border-2 border-dashed rounded-xl hover:border-emerald-400 hover:bg-emerald-50 transition-all group"
+      >
+        <div className="p-3 bg-emerald-100 rounded-full group-hover:bg-emerald-200">
+          <Upload className="h-6 w-6 text-emerald-600" />
+        </div>
+        <div className="text-center">
+          <div className="font-medium">Upload Excel</div>
+          <div className="text-sm text-muted-foreground">Bulk import</div>
         </div>
       </button>
 
@@ -924,6 +943,44 @@ export default function KeywordIntelPage() {
   const [domainKeywords, setDomainKeywords] = useState<DomainKeyword[]>([])
   const [discoveredKeywords, setDiscoveredKeywords] = useState<DiscoveredKeyword[]>([])
 
+  // Get existing keywords for duplicate detection
+  const existingKeywordTexts = useMemo(() => {
+    return new Set(keywords.map(k => k.keyword.toLowerCase().trim()))
+  }, [keywords])
+
+  // Handle Excel bulk import
+  const handleExcelImport = async (rows: ParsedRow[]): Promise<{ success: number; failed: number }> => {
+    try {
+      const response = await fetch('/api/keywords/bulk-save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId: brandId,
+          keywords: rows.map(r => ({
+            keyword: r.data.keyword,
+            search_volume: r.data.search_volume,
+            keyword_difficulty: r.data.keyword_difficulty,
+            intent_type: r.data.intent_type,
+            cpc: r.data.cpc,
+          })),
+          source: 'excel_import',
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Bulk import failed')
+      }
+
+      const result = await response.json()
+      await refetchKeywords()
+      toast.success(`Successfully imported ${result.saved} keywords`)
+      return { success: result.saved, failed: result.duplicates || 0 }
+    } catch (error) {
+      toast.error('Failed to import keywords')
+      throw error
+    }
+  }
+
   // Import from Brand Bible
   const importFromBrandBible = async () => {
     setImportingBrandBible(true)
@@ -1145,16 +1202,96 @@ export default function KeywordIntelPage() {
         )}
       </div>
 
-      {/* Keyword Source Buttons */}
-      <KeywordSourceButtons
-        onImportBrandBible={importFromBrandBible}
-        onScanDomain={scanDomainKeywords}
-        onAIDiscovery={discoverKeywords}
-        onManualEntry={() => setActiveTab('manual')}
-        importingBrandBible={importingBrandBible}
-        scanningDomain={scanningDomain}
-        discoveringKeywords={discoveringKeywords}
-      />
+      {/* Keyword Source Buttons with Excel Upload */}
+      <div className="grid grid-cols-5 gap-4">
+        <button
+          onClick={importFromBrandBible}
+          disabled={importingBrandBible}
+          className="flex flex-col items-center gap-3 p-6 bg-background border-2 border-dashed rounded-xl hover:border-blue-400 hover:bg-blue-50 transition-all group disabled:opacity-50"
+        >
+          <div className="p-3 bg-blue-100 rounded-full group-hover:bg-blue-200">
+            {importingBrandBible ? (
+              <Loader2 className="h-6 w-6 text-blue-600 animate-spin" />
+            ) : (
+              <FileText className="h-6 w-6 text-blue-600" />
+            )}
+          </div>
+          <div className="text-center">
+            <div className="font-medium">Brand Bible</div>
+            <div className="text-sm text-muted-foreground">Import from crawl</div>
+          </div>
+        </button>
+
+        <button
+          onClick={scanDomainKeywords}
+          disabled={scanningDomain}
+          className="flex flex-col items-center gap-3 p-6 bg-background border-2 border-dashed rounded-xl hover:border-green-400 hover:bg-green-50 transition-all group disabled:opacity-50"
+        >
+          <div className="p-3 bg-green-100 rounded-full group-hover:bg-green-200">
+            {scanningDomain ? (
+              <Loader2 className="h-6 w-6 text-green-600 animate-spin" />
+            ) : (
+              <Globe className="h-6 w-6 text-green-600" />
+            )}
+          </div>
+          <div className="text-center">
+            <div className="font-medium">Scan Domain</div>
+            <div className="text-sm text-muted-foreground">Find ranking keywords</div>
+          </div>
+        </button>
+
+        <button
+          onClick={discoverKeywords}
+          disabled={discoveringKeywords}
+          className="flex flex-col items-center gap-3 p-6 bg-background border-2 border-dashed rounded-xl hover:border-purple-400 hover:bg-purple-50 transition-all group disabled:opacity-50"
+        >
+          <div className="p-3 bg-purple-100 rounded-full group-hover:bg-purple-200">
+            {discoveringKeywords ? (
+              <Loader2 className="h-6 w-6 text-purple-600 animate-spin" />
+            ) : (
+              <Sparkles className="h-6 w-6 text-purple-600" />
+            )}
+          </div>
+          <div className="text-center">
+            <div className="font-medium">AI Discovery</div>
+            <div className="text-sm text-muted-foreground">Generate ideas</div>
+          </div>
+        </button>
+
+        <ExcelUpload
+          columns={KEYWORD_COLUMNS}
+          onImport={handleExcelImport}
+          templateName="keywords-template"
+          title="Bulk Import Keywords"
+          description="Upload an Excel or CSV file to import multiple keywords at once."
+          uniqueKey="keyword"
+          existingValues={existingKeywordTexts}
+          trigger={
+            <button className="flex flex-col items-center gap-3 p-6 bg-background border-2 border-dashed rounded-xl hover:border-emerald-400 hover:bg-emerald-50 transition-all group w-full h-full">
+              <div className="p-3 bg-emerald-100 rounded-full group-hover:bg-emerald-200">
+                <Upload className="h-6 w-6 text-emerald-600" />
+              </div>
+              <div className="text-center">
+                <div className="font-medium">Upload Excel</div>
+                <div className="text-sm text-muted-foreground">Bulk import</div>
+              </div>
+            </button>
+          }
+        />
+
+        <button
+          onClick={() => setActiveTab('manual')}
+          className="flex flex-col items-center gap-3 p-6 bg-background border-2 border-dashed rounded-xl hover:border-orange-400 hover:bg-orange-50 transition-all group"
+        >
+          <div className="p-3 bg-orange-100 rounded-full group-hover:bg-orange-200">
+            <Plus className="h-6 w-6 text-orange-600" />
+          </div>
+          <div className="text-center">
+            <div className="font-medium">Add Manual</div>
+            <div className="text-sm text-muted-foreground">Enter keywords</div>
+          </div>
+        </button>
+      </div>
 
       {/* Stats */}
       <KeywordStats keywords={keywords} />
