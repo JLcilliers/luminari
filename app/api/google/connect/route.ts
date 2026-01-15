@@ -24,9 +24,9 @@ export async function GET(request: NextRequest) {
     const state = Buffer.from(JSON.stringify({ projectId })).toString('base64')
 
     // Determine redirect URI based on environment
+    // NEXT_PUBLIC_APP_URL takes priority, then VERCEL_URL, then localhost
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL ||
-                    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` :
-                    'http://localhost:3000'
+                    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
     const redirectUri = `${baseUrl}/api/google/callback`
 
     // Generate OAuth URL and redirect
