@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -29,6 +29,7 @@ import {
   CheckCircle2,
   X,
   Loader2,
+  List,
 } from 'lucide-react'
 import {
   ColumnDef,
@@ -70,6 +71,24 @@ export function ExcelUpload({
   const [importResult, setImportResult] = useState<{ success: number; failed: number } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Get primary column for simplified display
+  const primaryColumn = useMemo(() => {
+    return columns.find(col => col.isPrimary) || columns.find(col => col.required)
+  }, [columns])
+
+  // Detect if this is a single-column upload (only primary field has values)
+  const isSingleColumnMode = useMemo(() => {
+    if (!validationResult || !primaryColumn) return false
+
+    return validationResult.rows.every(row => {
+      const filledKeys = Object.entries(row.data)
+        .filter(([, value]) => value !== '' && value !== null && value !== undefined)
+        .map(([key]) => key)
+
+      return filledKeys.length === 1 && filledKeys[0] === primaryColumn.key
+    })
+  }, [validationResult, primaryColumn])
 
   const resetState = () => {
     setValidationResult(null)
@@ -264,7 +283,11 @@ export function ExcelUpload({
                       <p className="text-sm text-muted-foreground mt-1">
                         or click to browse
                       </p>
-                      <p className="text-xs text-muted-foreground mt-4">
+                      <div className="flex items-center justify-center gap-2 mt-4 text-xs text-muted-foreground">
+                        <List className="h-3 w-3" />
+                        <span>Simple lists work too - just one {primaryColumn?.name.toLowerCase() || 'item'} per row</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2">
                         Supports .xlsx, .xls, and .csv files
                       </p>
                     </>
@@ -286,22 +309,25 @@ export function ExcelUpload({
                 </div>
 
                 <div className="text-xs text-muted-foreground">
-                  <p className="font-medium mb-1">Expected columns:</p>
-                  <ul className="list-disc list-inside space-y-0.5">
-                    {columns.map(col => (
-                      <li key={col.key}>
-                        <span className={col.required ? 'font-medium' : ''}>
-                          {col.name}
-                        </span>
-                        {col.required && <span className="text-red-500 ml-1">*</span>}
-                        {col.description && (
-                          <span className="text-muted-foreground/75 ml-1">
-                            - {col.description}
-                          </span>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
+                  <p className="font-medium mb-1">Supported formats:</p>
+                  <div className="space-y-2">
+                    <div className="p-2 bg-muted/50 rounded">
+                      <span className="font-medium">Simple list:</span> Just {primaryColumn?.name || 'items'} - one per row, no headers needed
+                    </div>
+                    <div className="p-2 bg-muted/50 rounded">
+                      <span className="font-medium">Full template:</span> Multiple columns with headers
+                      <ul className="list-disc list-inside mt-1 ml-2 space-y-0.5">
+                        {columns.map(col => (
+                          <li key={col.key}>
+                            <span className={col.required ? 'font-medium' : 'text-muted-foreground'}>
+                              {col.name}
+                            </span>
+                            {col.required && <span className="text-green-600 ml-1">(required)</span>}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
@@ -312,10 +338,21 @@ export function ExcelUpload({
                 {/* Summary */}
                 <div className="flex items-center gap-4 p-3 bg-muted rounded-lg">
                   <div className="flex items-center gap-2">
-                    <Badge variant="secondary">{totalCount} rows</Badge>
-                    <Badge variant="default" className="bg-green-500">
-                      {validCount} valid
-                    </Badge>
+                    {isSingleColumnMode ? (
+                      <>
+                        <List className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-medium">
+                          Detected {validCount} {primaryColumn?.name.toLowerCase() || 'item'}{validCount !== 1 ? 's' : ''}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <Badge variant="secondary">{totalCount} rows</Badge>
+                        <Badge variant="default" className="bg-green-500">
+                          {validCount} valid
+                        </Badge>
+                      </>
+                    )}
                     {errorCount > 0 && (
                       <Badge variant="destructive">{errorCount} errors</Badge>
                     )}
@@ -349,53 +386,89 @@ export function ExcelUpload({
                   </div>
                 )}
 
-                {/* Table */}
+                {/* Table - simplified for single column mode */}
                 <ScrollArea className="h-[400px] rounded-md border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[60px]">Row</TableHead>
-                        <TableHead className="w-[80px]">Status</TableHead>
-                        {columns.map(col => (
-                          <TableHead key={col.key}>
-                            {col.name}
-                            {col.required && <span className="text-red-500 ml-0.5">*</span>}
-                          </TableHead>
-                        ))}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {validationResult.rows.map((row, idx) => (
-                        <TableRow
-                          key={idx}
-                          className={cn(
-                            !row.isValid && 'bg-red-500/5'
-                          )}
-                        >
-                          <TableCell className="font-mono text-xs">
-                            {row.rowIndex}
-                          </TableCell>
-                          <TableCell>
-                            {row.isValid ? (
-                              <CheckCircle2 className="h-4 w-4 text-green-500" />
-                            ) : (
-                              <div className="flex items-center gap-1">
-                                <AlertCircle className="h-4 w-4 text-red-500" />
-                                <span className="text-xs text-red-500 truncate max-w-[100px]" title={row.errors.join(', ')}>
-                                  {row.errors[0]}
-                                </span>
-                              </div>
-                            )}
-                          </TableCell>
-                          {columns.map(col => (
-                            <TableCell key={col.key} className="max-w-[200px] truncate">
-                              {String(row.data[col.key] || '')}
+                  {isSingleColumnMode && primaryColumn ? (
+                    // Simplified single-column preview
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-[60px]">#</TableHead>
+                          <TableHead>{primaryColumn.name}</TableHead>
+                          <TableHead className="w-[80px]">Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {validationResult.rows.map((row, idx) => (
+                          <TableRow
+                            key={idx}
+                            className={cn(!row.isValid && 'bg-red-500/5')}
+                          >
+                            <TableCell className="font-mono text-xs text-muted-foreground">
+                              {idx + 1}
                             </TableCell>
+                            <TableCell className="max-w-[400px] truncate">
+                              {String(row.data[primaryColumn.key] || '')}
+                            </TableCell>
+                            <TableCell>
+                              {row.isValid ? (
+                                <CheckCircle2 className="h-4 w-4 text-green-500" />
+                              ) : (
+                                <AlertCircle className="h-4 w-4 text-red-500" title={row.errors.join(', ')} />
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  ) : (
+                    // Full multi-column preview
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-[60px]">Row</TableHead>
+                          <TableHead className="w-[80px]">Status</TableHead>
+                          {columns.map(col => (
+                            <TableHead key={col.key}>
+                              {col.name}
+                              {col.required && <span className="text-red-500 ml-0.5">*</span>}
+                            </TableHead>
                           ))}
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {validationResult.rows.map((row, idx) => (
+                          <TableRow
+                            key={idx}
+                            className={cn(
+                              !row.isValid && 'bg-red-500/5'
+                            )}
+                          >
+                            <TableCell className="font-mono text-xs">
+                              {row.rowIndex}
+                            </TableCell>
+                            <TableCell>
+                              {row.isValid ? (
+                                <CheckCircle2 className="h-4 w-4 text-green-500" />
+                              ) : (
+                                <div className="flex items-center gap-1">
+                                  <AlertCircle className="h-4 w-4 text-red-500" />
+                                  <span className="text-xs text-red-500 truncate max-w-[100px]" title={row.errors.join(', ')}>
+                                    {row.errors[0]}
+                                  </span>
+                                </div>
+                              )}
+                            </TableCell>
+                            {columns.map(col => (
+                              <TableCell key={col.key} className="max-w-[200px] truncate">
+                                {String(row.data[col.key] || '')}
+                              </TableCell>
+                            ))}
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
                 </ScrollArea>
               </div>
             )}
@@ -418,7 +491,7 @@ export function ExcelUpload({
                 ) : (
                   <>
                     <Upload className="mr-2 h-4 w-4" />
-                    Import {validCount} {validCount === 1 ? 'Row' : 'Rows'}
+                    Import {validCount} {isSingleColumnMode ? (primaryColumn?.name.toLowerCase() || 'item') + (validCount !== 1 ? 's' : '') : (validCount === 1 ? 'Row' : 'Rows')}
                   </>
                 )}
               </Button>

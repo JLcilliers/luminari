@@ -8,6 +8,7 @@ export interface ColumnDef {
   type: 'string' | 'number' | 'boolean'
   options?: string[]     // For enum/select fields
   description?: string   // Help text for template
+  isPrimary?: boolean    // Mark the main field for single-column detection
 }
 
 // Parsed row from Excel
@@ -27,8 +28,94 @@ export interface ValidationResult {
   errors: string[]
 }
 
+// Parse result with metadata
+export interface ParseResult {
+  rows: ParsedRow[]
+  isSingleColumn: boolean
+  detectedHeader: boolean
+  columnCount: number
+}
+
+// Common header-like words that indicate a header row
+const HEADER_INDICATORS = [
+  'prompt', 'keyword', 'text', 'name', 'title', 'query', 'search',
+  'volume', 'difficulty', 'intent', 'category', 'notes', 'cpc',
+  'description', 'url', 'link', 'type', 'status', 'date', 'id',
+  'item', 'data', 'value', 'column', 'field', 'entry', 'list'
+]
+
 /**
- * Parse an Excel or CSV file
+ * Check if a value looks like a header rather than data
+ */
+function looksLikeHeader(value: string): boolean {
+  if (!value || typeof value !== 'string') return false
+
+  const normalized = value.toLowerCase().trim()
+
+  // Check if it matches common header patterns
+  if (HEADER_INDICATORS.some(h => normalized.includes(h))) return true
+
+  // Check if it's a short label-like string (headers are usually short)
+  if (normalized.length < 30 && !normalized.includes(' ') && /^[a-z_]+$/i.test(normalized)) return true
+
+  // Check if it looks like a column name (Title Case or UPPERCASE)
+  if (/^[A-Z][a-z]+(\s[A-Z][a-z]+)*$/.test(value.trim())) return true
+  if (/^[A-Z_]+$/.test(value.trim())) return true
+
+  return false
+}
+
+/**
+ * Check if the first row appears to be a header row
+ */
+function isHeaderRow(firstRow: unknown[], columns: ColumnDef[]): boolean {
+  if (!firstRow || firstRow.length === 0) return false
+
+  // Build a set of known column names and keys
+  const knownHeaders = new Set<string>()
+  columns.forEach(col => {
+    knownHeaders.add(col.name.toLowerCase())
+    knownHeaders.add(col.key.toLowerCase())
+  })
+
+  // Check each cell in the first row
+  let headerLikeCount = 0
+  let matchesKnownHeader = false
+
+  for (const cell of firstRow) {
+    const cellStr = String(cell || '').toLowerCase().trim()
+    if (!cellStr) continue
+
+    if (knownHeaders.has(cellStr)) {
+      matchesKnownHeader = true
+      headerLikeCount++
+    } else if (looksLikeHeader(cellStr)) {
+      headerLikeCount++
+    }
+  }
+
+  // If any cell matches a known column name, it's definitely a header
+  if (matchesKnownHeader) return true
+
+  // If most cells look like headers, treat as header row
+  const nonEmptyCells = firstRow.filter(c => c !== '' && c !== null && c !== undefined).length
+  return nonEmptyCells > 0 && headerLikeCount >= nonEmptyCells * 0.5
+}
+
+/**
+ * Get the primary (required) column from column definitions
+ */
+function getPrimaryColumn(columns: ColumnDef[]): ColumnDef | undefined {
+  // First check for explicitly marked primary column
+  const primary = columns.find(col => col.isPrimary)
+  if (primary) return primary
+
+  // Otherwise use the first required column
+  return columns.find(col => col.required)
+}
+
+/**
+ * Parse an Excel or CSV file with smart single-column detection
  */
 export async function parseExcelFile(
   file: File,
@@ -46,77 +133,164 @@ export async function parseExcelFile(
         const sheetName = workbook.SheetNames[0]
         const worksheet = workbook.Sheets[sheetName]
 
-        // Convert to JSON with header row
-        const jsonData = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, {
+        // Get raw array data to detect structure
+        const rawData = XLSX.utils.sheet_to_json<unknown[]>(worksheet, {
+          header: 1,
           defval: '',
           raw: false,
         })
 
-        // Map column names to keys and validate
-        const columnNameMap = new Map<string, ColumnDef>()
-        columns.forEach(col => {
-          columnNameMap.set(col.name.toLowerCase(), col)
-          columnNameMap.set(col.key.toLowerCase(), col)
-        })
+        if (!rawData || rawData.length === 0) {
+          resolve([])
+          return
+        }
 
-        const parsedRows: ParsedRow[] = jsonData.map((row, index) => {
-          const errors: string[] = []
-          const parsedData: Record<string, unknown> = {}
+        // Detect column count (max columns across all rows)
+        const columnCount = Math.max(...rawData.map(row =>
+          Array.isArray(row) ? row.filter(c => c !== '' && c !== null && c !== undefined).length : 0
+        ))
 
-          // Map headers to keys
-          Object.entries(row).forEach(([header, value]) => {
-            const col = columnNameMap.get(header.toLowerCase())
-            if (col) {
-              // Type conversion
-              if (col.type === 'number' && value !== '') {
-                const numValue = Number(value)
-                if (isNaN(numValue)) {
-                  errors.push(`${col.name}: Invalid number`)
-                } else {
-                  parsedData[col.key] = numValue
-                }
-              } else if (col.type === 'boolean') {
-                const strValue = String(value).toLowerCase()
-                parsedData[col.key] = strValue === 'true' || strValue === 'yes' || strValue === '1'
-              } else {
-                parsedData[col.key] = String(value).trim()
-              }
+        const isSingleColumn = columnCount === 1
+        const primaryColumn = getPrimaryColumn(columns)
 
-              // Enum validation
-              if (col.options && value !== '') {
-                const strValue = String(value).toLowerCase()
-                if (!col.options.map(o => o.toLowerCase()).includes(strValue)) {
-                  errors.push(`${col.name}: Must be one of: ${col.options.join(', ')}`)
-                }
-              }
+        // Check if first row is a header
+        const firstRow = rawData[0] as unknown[]
+        const hasHeader = isHeaderRow(firstRow, columns)
+
+        let parsedRows: ParsedRow[]
+
+        if (isSingleColumn && primaryColumn) {
+          // Single column mode - map everything to primary field
+          const startIndex = hasHeader ? 1 : 0
+
+          parsedRows = rawData.slice(startIndex).map((row, index) => {
+            const rowArray = Array.isArray(row) ? row : [row]
+            const value = String(rowArray[0] || '').trim()
+
+            const errors: string[] = []
+            if (!value) {
+              errors.push(`${primaryColumn.name} is required`)
             }
+
+            return {
+              rowIndex: index + startIndex + 1, // 1-indexed
+              data: { [primaryColumn.key]: value },
+              errors,
+              isValid: errors.length === 0 && value !== '',
+            }
+          }).filter(row => {
+            // Filter out empty rows
+            const value = row.data[primaryColumn.key]
+            return value !== '' && value !== null && value !== undefined
+          })
+        } else {
+          // Multi-column mode - use header mapping
+          // Convert to JSON with headers
+          const jsonData = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, {
+            defval: '',
+            raw: false,
           })
 
-          // Check required fields
-          columns
-            .filter(col => col.required)
-            .forEach(col => {
-              const value = parsedData[col.key]
-              if (value === undefined || value === null || value === '') {
-                errors.push(`${col.name} is required`)
+          // Build column name map
+          const columnNameMap = new Map<string, ColumnDef>()
+          columns.forEach(col => {
+            columnNameMap.set(col.name.toLowerCase(), col)
+            columnNameMap.set(col.key.toLowerCase(), col)
+          })
+
+          // Check if we got any recognized headers
+          const firstRowKeys = jsonData.length > 0 ? Object.keys(jsonData[0]) : []
+          const hasRecognizedHeaders = firstRowKeys.some(key =>
+            columnNameMap.has(key.toLowerCase())
+          )
+
+          if (!hasRecognizedHeaders && primaryColumn && jsonData.length > 0) {
+            // No recognized headers - use first column as primary field
+            const firstColumnKey = firstRowKeys[0]
+
+            parsedRows = jsonData.map((row, index) => {
+              const value = String(row[firstColumnKey] || '').trim()
+              const errors: string[] = []
+
+              if (!value) {
+                errors.push(`${primaryColumn.name} is required`)
+              }
+
+              return {
+                rowIndex: index + 2,
+                data: { [primaryColumn.key]: value },
+                errors,
+                isValid: errors.length === 0 && value !== '',
               }
             })
+          } else {
+            // Standard multi-column parsing with header mapping
+            parsedRows = jsonData.map((row, index) => {
+              const errors: string[] = []
+              const parsedData: Record<string, unknown> = {}
 
-          return {
-            rowIndex: index + 2, // +2 because Excel is 1-indexed and has header row
-            data: parsedData,
-            errors,
-            isValid: errors.length === 0,
+              // Map headers to keys
+              Object.entries(row).forEach(([header, value]) => {
+                const col = columnNameMap.get(header.toLowerCase())
+                if (col) {
+                  // Type conversion
+                  if (col.type === 'number' && value !== '') {
+                    const numValue = Number(value)
+                    if (isNaN(numValue)) {
+                      errors.push(`${col.name}: Invalid number`)
+                    } else {
+                      parsedData[col.key] = numValue
+                    }
+                  } else if (col.type === 'boolean') {
+                    const strValue = String(value).toLowerCase()
+                    parsedData[col.key] = strValue === 'true' || strValue === 'yes' || strValue === '1'
+                  } else {
+                    parsedData[col.key] = String(value).trim()
+                  }
+
+                  // Enum validation
+                  if (col.options && value !== '') {
+                    const strValue = String(value).toLowerCase()
+                    if (!col.options.map(o => o.toLowerCase()).includes(strValue)) {
+                      errors.push(`${col.name}: Must be one of: ${col.options.join(', ')}`)
+                    }
+                  }
+                } else if (!hasRecognizedHeaders && primaryColumn) {
+                  // No recognized headers - put first column value in primary field
+                  const val = String(value).trim()
+                  if (val && !parsedData[primaryColumn.key]) {
+                    parsedData[primaryColumn.key] = val
+                  }
+                }
+              })
+
+              // Check required fields
+              columns
+                .filter(col => col.required)
+                .forEach(col => {
+                  const value = parsedData[col.key]
+                  if (value === undefined || value === null || value === '') {
+                    errors.push(`${col.name} is required`)
+                  }
+                })
+
+              return {
+                rowIndex: index + 2,
+                data: parsedData,
+                errors,
+                isValid: errors.length === 0,
+              }
+            })
           }
-        })
 
-        // Filter out completely empty rows
-        const nonEmptyRows = parsedRows.filter(row => {
-          const values = Object.values(row.data)
-          return values.some(v => v !== '' && v !== null && v !== undefined)
-        })
+          // Filter out completely empty rows
+          parsedRows = parsedRows.filter(row => {
+            const values = Object.values(row.data)
+            return values.some(v => v !== '' && v !== null && v !== undefined)
+          })
+        }
 
-        resolve(nonEmptyRows)
+        resolve(parsedRows)
       } catch (error) {
         reject(new Error('Failed to parse file. Please check the format.'))
       }
@@ -149,11 +323,11 @@ export function validateRows(
       const value = String(row.data[uniqueKey] || '').toLowerCase()
       if (value) {
         if (seenValues.has(value)) {
-          row.errors.push(`Duplicate ${uniqueKey} in upload`)
+          row.errors.push(`Duplicate in upload`)
           row.isValid = false
           duplicateCount++
         } else if (existingValues?.has(value)) {
-          row.errors.push(`${uniqueKey} already exists in database`)
+          row.errors.push(`Already exists`)
           row.isValid = false
           duplicateCount++
         }
@@ -267,6 +441,7 @@ export const PROMPT_COLUMNS: ColumnDef[] = [
     required: true,
     type: 'string',
     description: 'The prompt to monitor in AI platforms',
+    isPrimary: true,
   },
   {
     name: 'Category',
@@ -299,6 +474,7 @@ export const KEYWORD_COLUMNS: ColumnDef[] = [
     required: true,
     type: 'string',
     description: 'The keyword to track',
+    isPrimary: true,
   },
   {
     name: 'Search Volume',
