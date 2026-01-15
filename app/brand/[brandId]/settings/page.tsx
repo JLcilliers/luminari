@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Database, Key, Loader2, Map } from 'lucide-react'
+import { Database, Loader2, Map } from 'lucide-react'
 import { useProject } from '@/hooks'
 import { CompetitorList, PersonaList } from '@/components/settings'
 
@@ -65,7 +65,6 @@ export default function SettingsPage() {
           <TabsTrigger value="personas">Personas</TabsTrigger>
           <TabsTrigger value="sitemap">Sitemap</TabsTrigger>
           <TabsTrigger value="database">Database</TabsTrigger>
-          <TabsTrigger value="api">API Keys</TabsTrigger>
         </TabsList>
 
         <TabsContent value="competitors" className="space-y-6 mt-6">
@@ -146,39 +145,6 @@ export default function SettingsPage() {
                   Database is connected via environment variables
                 </span>
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="api" className="space-y-6 mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Key className="h-5 w-5" />
-                AI Provider API Keys
-              </CardTitle>
-              <CardDescription>
-                Configure API keys for AI model providers (for data collection)
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">OpenAI API Key</label>
-                  <Input type="password" placeholder="sk-..." />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Anthropic API Key</label>
-                  <Input type="password" placeholder="sk-ant-..." />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Google AI API Key</label>
-                  <Input type="password" placeholder="AI..." />
-                </div>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                API key management will be available in a future update.
-              </p>
             </CardContent>
           </Card>
         </TabsContent>
