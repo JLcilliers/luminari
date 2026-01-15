@@ -24,6 +24,7 @@ import {
   Loader2,
   BarChart3,
   Wand2,
+  Search,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -36,6 +37,7 @@ const navigation = [
   { name: 'Sentiment', href: 'sentiment', icon: Smile },
   { name: 'Answer Gaps', href: 'answer-gaps', icon: Target },
   { name: 'Keyword Intel', href: 'keyword-intel', icon: BarChart3 },
+  { name: 'Google Insights', href: 'google-insights', icon: Search },
   { name: 'Keyword Fueler', href: 'keyword-fueler', icon: Fuel },
   { name: 'Launchpad', href: 'visibility-launchpad', icon: Rocket },
   { name: 'Create Content', href: 'create-content', icon: PenTool },

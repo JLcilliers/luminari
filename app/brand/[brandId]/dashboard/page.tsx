@@ -10,6 +10,10 @@ import { TopBrands } from '@/components/dashboard/TopBrands';
 import { TopDomains } from '@/components/dashboard/TopDomains';
 import { HealthScore } from '@/components/dashboard/HealthScore';
 import { SetupChecklist } from '@/components/dashboard/SetupChecklist';
+import { GSCPerformanceCard } from '@/components/dashboard/GSCPerformanceCard';
+import { GSCTopKeywords } from '@/components/dashboard/GSCTopKeywords';
+import { GA4TrafficCard } from '@/components/dashboard/GA4TrafficCard';
+import { GoogleConnectCTA } from '@/components/dashboard/GoogleConnectCTA';
 
 export default function DashboardPage() {
   const params = useParams();
@@ -28,18 +32,29 @@ export default function DashboardPage() {
 
       <StatsCards projectId={brandId} />
 
+      {/* Google Connect CTA - shown when not connected */}
+      <GoogleConnectCTA projectId={brandId} />
+
+      {/* Google Analytics Section */}
       <div className="grid gap-6 lg:grid-cols-3">
+        <GSCPerformanceCard projectId={brandId} />
+        <GSCTopKeywords projectId={brandId} />
+      </div>
+
+      {/* GA4 Traffic Card */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <GA4TrafficCard projectId={brandId} />
         <VisibilityChart projectId={brandId} />
-        <HealthScore projectId={brandId} />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
+        <HealthScore projectId={brandId} />
         <ModelDistribution projectId={brandId} />
         <TopBrands projectId={brandId} />
-        <TopDomains projectId={brandId} />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
+        <TopDomains projectId={brandId} />
         <RecentResponses projectId={brandId} />
         <ShareOfVoice projectId={brandId} />
       </div>

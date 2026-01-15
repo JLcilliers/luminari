@@ -141,4 +141,6 @@ export {
   useDisconnectGoogle,
   useGSCKeywords,
   useImportGSCKeywords,
+  useGSCPages,
+  useGA4Overview,
 } from './useGoogleConnection'

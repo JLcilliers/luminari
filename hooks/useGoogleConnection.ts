@@ -131,3 +131,78 @@ export function useImportGSCKeywords() {
     },
   })
 }
+
+// GSC Pages data interface
+interface GSCPagesData {
+  pages: {
+    url: string
+    clicks: number
+    impressions: number
+    ctr: number
+    position: number
+  }[]
+  dateRange: {
+    start: string
+    end: string
+  }
+  property: string
+}
+
+// Fetch GSC pages
+export function useGSCPages(projectId: string, days: number = 28, enabled: boolean = true) {
+  return useQuery<GSCPagesData>({
+    queryKey: ['gsc-pages', projectId, days],
+    queryFn: async () => {
+      const response = await fetch(`/api/google/gsc/pages?projectId=${projectId}&days=${days}`)
+      if (!response.ok) throw new Error('Failed to fetch GSC pages')
+      return response.json()
+    },
+    enabled: enabled && !!projectId,
+    staleTime: 300000, // 5 minutes
+  })
+}
+
+// GA4 Overview data interface
+interface GA4OverviewData {
+  overview: {
+    sessions: number
+    users: number
+    pageviews: number
+    bounceRate: number
+    avgSessionDuration: number
+  }
+  dailyData: {
+    date: string
+    sessions: number
+    users: number
+  }[]
+  trafficSources: {
+    source: string
+    sessions: number
+  }[]
+  topPages: {
+    page: string
+    sessions: number
+    users: number
+    bounceRate: number
+  }[]
+  dateRange: {
+    start: string
+    end: string
+  }
+  property: string
+}
+
+// Fetch GA4 overview
+export function useGA4Overview(projectId: string, days: number = 28, enabled: boolean = true) {
+  return useQuery<GA4OverviewData>({
+    queryKey: ['ga4-overview', projectId, days],
+    queryFn: async () => {
+      const response = await fetch(`/api/google/ga4?projectId=${projectId}&days=${days}`)
+      if (!response.ok) throw new Error('Failed to fetch GA4 data')
+      return response.json()
+    },
+    enabled: enabled && !!projectId,
+    staleTime: 300000, // 5 minutes
+  })
+}
