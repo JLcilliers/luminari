@@ -44,7 +44,6 @@ import {
   useKeywords,
   useSyncKeywords,
   useKeywordResearch,
-  useAddToCart,
   useCompetitors,
   useProject,
 } from '@/hooks'
@@ -236,7 +235,6 @@ function KeywordSourceButtons({
 
 // Overview Tab - Your Keywords
 function OverviewTab({
-  projectId,
   keywords,
   isLoading,
   selectedKeywords,
@@ -245,7 +243,6 @@ function OverviewTab({
   onRefresh,
   isRefreshing,
 }: {
-  projectId: string
   keywords: Keyword[]
   isLoading: boolean
   selectedKeywords: Set<string>
@@ -254,7 +251,6 @@ function OverviewTab({
   onRefresh: () => void
   isRefreshing: boolean
 }) {
-  const addToCart = useAddToCart()
   const [sortBy, setSortBy] = useState<'search_volume' | 'position' | 'keyword_difficulty'>('search_volume')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
 
@@ -391,7 +387,6 @@ function OverviewTab({
                 </TableHead>
                 <TableHead>Intent</TableHead>
                 <TableHead>Source</TableHead>
-                <TableHead className="w-[100px]">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -443,16 +438,6 @@ function OverviewTab({
                     <Badge variant="secondary" className="text-xs">
                       {kw.source || 'manual'}
                     </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => addToCart.mutate({ projectId, keywordId: kw.id })}
-                      disabled={kw.in_cart || addToCart.isPending}
-                    >
-                      {kw.in_cart ? 'In Cart' : 'Add'}
-                    </Button>
                   </TableCell>
                 </TableRow>
               ))}
@@ -1153,31 +1138,33 @@ export default function KeywordIntelPage() {
     }
   }
 
-  // Send to optimizer
-  const sendToOptimizer = async () => {
+  // Send selected keywords directly to Launchpad
+  const [sendingToLaunchpad, setSendingToLaunchpad] = useState(false)
+
+  const sendToLaunchpad = async () => {
     if (selectedKeywords.size === 0) return
 
+    setSendingToLaunchpad(true)
     const selected = keywords.filter(k => selectedKeywords.has(k.id))
+    const keywordIds = selected.map(k => k.id)
 
     try {
-      const tasks = selected.map(k => ({
-        project_id: brandId,
-        keyword_id: k.id,
-        target_keyword: k.keyword,
-        target_url: k.landing_page,
-        status: 'pending',
-      }))
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase.from('optimization_tasks') as any).insert(tasks)
+      // Mark keywords as sent to launchpad
+      const { error } = await supabase
+        .from('keywords')
+        .update({ sent_to_launchpad: true } as never)
+        .in('id', keywordIds)
 
       if (error) throw error
 
-      alert(`Added ${tasks.length} keywords to Content Optimizer!`)
+      toast.success(`${selected.length} keyword${selected.length !== 1 ? 's' : ''} added to Launchpad`)
       setSelectedKeywords(new Set())
+      await refetchKeywords()
     } catch (error) {
       console.error('Send error:', error)
-      alert('Failed to create optimization tasks')
+      toast.error('Failed to send keywords to Launchpad')
+    } finally {
+      setSendingToLaunchpad(false)
     }
   }
 
@@ -1194,13 +1181,36 @@ export default function KeywordIntelPage() {
             Discover and manage your target keywords from multiple sources
           </p>
         </div>
-        {selectedKeywords.size > 0 && (
-          <Button onClick={sendToOptimizer}>
-            <Send className="h-4 w-4 mr-2" />
-            Optimize ({selectedKeywords.size})
-          </Button>
-        )}
       </div>
+
+      {/* Bulk Actions Bar - appears when keywords selected */}
+      {selectedKeywords.size > 0 && (
+        <div className="flex items-center justify-between p-4 bg-primary/5 border border-primary/20 rounded-lg">
+          <span className="font-medium">
+            {selectedKeywords.size} keyword{selectedKeywords.size !== 1 ? 's' : ''} selected
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setSelectedKeywords(new Set())}
+            >
+              Clear Selection
+            </Button>
+            <Button
+              onClick={sendToLaunchpad}
+              disabled={sendingToLaunchpad}
+              className="bg-primary"
+            >
+              {sendingToLaunchpad ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4 mr-2" />
+              )}
+              Send {selectedKeywords.size} to Launchpad
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Keyword Source Buttons with Excel Upload */}
       <div className="grid grid-cols-5 gap-4">
@@ -1330,7 +1340,6 @@ export default function KeywordIntelPage() {
 
         <TabsContent value="overview">
           <OverviewTab
-            projectId={brandId}
             keywords={keywords}
             isLoading={keywordsLoading}
             selectedKeywords={selectedKeywords}

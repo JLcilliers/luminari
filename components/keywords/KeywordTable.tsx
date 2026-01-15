@@ -13,16 +13,20 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
-  ShoppingCart,
+  Send,
   Trash2,
   TrendingUp,
   TrendingDown,
   Minus,
   ExternalLink,
+  Loader2,
 } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
+import { toast } from 'sonner'
 import type { Keyword, KeywordIntent, KeywordTrend } from '@/lib/types'
 import { KEYWORD_INTENT_COLORS, KEYWORD_INTENT_LABELS } from '@/lib/types'
-import { useAddToCart, useRemoveFromCart, useDeleteKeyword, useBulkAddToCart } from '@/hooks'
+import { useDeleteKeyword } from '@/hooks'
+import { useQueryClient } from '@tanstack/react-query'
 
 interface KeywordTableProps {
   keywords: Keyword[]
@@ -74,14 +78,13 @@ export function KeywordTable({
   emptyMessage = 'No keywords found',
 }: KeywordTableProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const addToCart = useAddToCart()
-  const removeFromCart = useRemoveFromCart()
+  const [sendingToLaunchpad, setSendingToLaunchpad] = useState(false)
   const deleteKeyword = useDeleteKeyword()
-  const bulkAddToCart = useBulkAddToCart()
+  const queryClient = useQueryClient()
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedIds(new Set(keywords.filter((k) => !k.in_cart).map((k) => k.id)))
+      setSelectedIds(new Set(keywords.filter((k) => !k.sent_to_launchpad).map((k) => k.id)))
     } else {
       setSelectedIds(new Set())
     }
@@ -97,21 +100,27 @@ export function KeywordTable({
     setSelectedIds(newSet)
   }
 
-  const handleBulkAddToCart = async () => {
+  const handleSendToLaunchpad = async () => {
     if (selectedIds.size === 0) return
-    await bulkAddToCart.mutateAsync({
-      projectId,
-      keywordIds: Array.from(selectedIds),
-    })
-    setSelectedIds(new Set())
-  }
 
-  const handleAddToCart = async (keywordId: string) => {
-    await addToCart.mutateAsync({ projectId, keywordId })
-  }
+    setSendingToLaunchpad(true)
+    try {
+      const { error } = await supabase
+        .from('keywords')
+        .update({ sent_to_launchpad: true } as never)
+        .in('id', Array.from(selectedIds))
 
-  const handleRemoveFromCart = async (keywordId: string) => {
-    await removeFromCart.mutateAsync({ projectId, keywordId })
+      if (error) throw error
+
+      toast.success(`${selectedIds.size} keyword${selectedIds.size !== 1 ? 's' : ''} added to Launchpad`)
+      setSelectedIds(new Set())
+      queryClient.invalidateQueries({ queryKey: ['keywords', projectId] })
+    } catch (error) {
+      console.error('Send error:', error)
+      toast.error('Failed to send keywords to Launchpad')
+    } finally {
+      setSendingToLaunchpad(false)
+    }
   }
 
   const handleDelete = async (keywordId: string) => {
@@ -136,21 +145,27 @@ export function KeywordTable({
     )
   }
 
-  const selectableKeywords = keywords.filter((k) => !k.in_cart)
+  const selectableKeywords = keywords.filter((k) => !k.sent_to_launchpad)
   const allSelected = selectableKeywords.length > 0 && selectedIds.size === selectableKeywords.length
 
   return (
     <div className="space-y-4">
       {selectedIds.size > 0 && (
-        <div className="flex items-center gap-4 p-3 bg-muted rounded-lg">
-          <span className="text-sm font-medium">{selectedIds.size} selected</span>
-          <Button size="sm" onClick={handleBulkAddToCart} disabled={bulkAddToCart.isPending}>
-            <ShoppingCart className="h-4 w-4 mr-2" />
-            Add to Cart
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => setSelectedIds(new Set())}>
-            Clear Selection
-          </Button>
+        <div className="flex items-center justify-between p-4 bg-primary/5 border border-primary/20 rounded-lg">
+          <span className="font-medium">{selectedIds.size} keyword{selectedIds.size !== 1 ? 's' : ''} selected</span>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => setSelectedIds(new Set())}>
+              Clear Selection
+            </Button>
+            <Button onClick={handleSendToLaunchpad} disabled={sendingToLaunchpad}>
+              {sendingToLaunchpad ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4 mr-2" />
+              )}
+              Send {selectedIds.size} to Launchpad
+            </Button>
+          </div>
         </div>
       )}
 
@@ -175,17 +190,17 @@ export function KeywordTable({
               <TableHead className="text-center">Score</TableHead>
               {showSource && <TableHead>Source</TableHead>}
               {showCompetitor && <TableHead>Competitor</TableHead>}
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead className="text-right w-[80px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {keywords.map((keyword) => (
-              <TableRow key={keyword.id} className={keyword.in_cart ? 'bg-muted/50' : ''}>
+              <TableRow key={keyword.id} className={keyword.sent_to_launchpad ? 'bg-muted/50' : ''}>
                 <TableCell>
                   <Checkbox
                     checked={selectedIds.has(keyword.id)}
                     onCheckedChange={(checked) => handleSelectOne(keyword.id, checked as boolean)}
-                    disabled={keyword.in_cart}
+                    disabled={keyword.sent_to_launchpad}
                   />
                 </TableCell>
                 <TableCell className="font-medium">
@@ -201,14 +216,9 @@ export function KeywordTable({
                         <ExternalLink className="h-3 w-3" />
                       </a>
                     )}
-                    {keyword.in_cart && (
-                      <Badge variant="secondary" className="ml-2">
-                        In Cart
-                      </Badge>
-                    )}
                     {keyword.sent_to_launchpad && (
                       <Badge variant="default" className="ml-2">
-                        Launchpad
+                        In Launchpad
                       </Badge>
                     )}
                   </div>
@@ -244,35 +254,14 @@ export function KeywordTable({
                   </TableCell>
                 )}
                 <TableCell className="text-right">
-                  <div className="flex items-center justify-end gap-2">
-                    {keyword.in_cart ? (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleRemoveFromCart(keyword.id)}
-                        disabled={removeFromCart.isPending}
-                      >
-                        <ShoppingCart className="h-4 w-4 text-green-500" />
-                      </Button>
-                    ) : (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleAddToCart(keyword.id)}
-                        disabled={addToCart.isPending}
-                      >
-                        <ShoppingCart className="h-4 w-4" />
-                      </Button>
-                    )}
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleDelete(keyword.id)}
-                      disabled={deleteKeyword.isPending}
-                    >
-                      <Trash2 className="h-4 w-4 text-red-500" />
-                    </Button>
-                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => handleDelete(keyword.id)}
+                    disabled={deleteKeyword.isPending}
+                  >
+                    <Trash2 className="h-4 w-4 text-red-500" />
+                  </Button>
                 </TableCell>
               </TableRow>
             ))}

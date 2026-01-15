@@ -18,7 +18,7 @@ import {
   Trash2,
   Fuel,
 } from 'lucide-react'
-import { KeywordTable, KeywordCart } from '@/components/keywords'
+import { KeywordTable } from '@/components/keywords'
 import {
   useKeywords,
   useAddKeyword,
@@ -304,7 +304,6 @@ export default function KeywordFuelerPage() {
             Discover, plan, and compete for keywords to fuel your AI visibility strategy
           </p>
         </div>
-        <KeywordCart projectId={brandId} />
       </div>
 
       <Tabs defaultValue="mine" className="space-y-6">
