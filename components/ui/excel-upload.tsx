@@ -414,7 +414,9 @@ export function ExcelUpload({
                               {row.isValid ? (
                                 <CheckCircle2 className="h-4 w-4 text-green-500" />
                               ) : (
-                                <AlertCircle className="h-4 w-4 text-red-500" title={row.errors.join(', ')} />
+                                <span title={row.errors.join(', ')}>
+                                  <AlertCircle className="h-4 w-4 text-red-500" />
+                                </span>
                               )}
                             </TableCell>
                           </TableRow>
