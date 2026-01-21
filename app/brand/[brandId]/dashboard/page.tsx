@@ -14,10 +14,13 @@ import { GSCPerformanceCard } from '@/components/dashboard/GSCPerformanceCard';
 import { GSCTopKeywords } from '@/components/dashboard/GSCTopKeywords';
 import { GA4TrafficCard } from '@/components/dashboard/GA4TrafficCard';
 import { GoogleConnectCTA } from '@/components/dashboard/GoogleConnectCTA';
+import { BrandOverviewPanel } from '@/components/brand-overview';
+import { useProject } from '@/hooks/useProjects';
 
 export default function DashboardPage() {
   const params = useParams();
   const brandId = params.brandId as string;
+  const { data: project } = useProject(brandId);
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -27,6 +30,13 @@ export default function DashboardPage() {
           Monitor your brand visibility across AI platforms
         </p>
       </div>
+
+      {/* Brand Overview - Auto-generates on first visit */}
+      <BrandOverviewPanel
+        projectId={brandId}
+        websiteUrl={project?.website_url}
+        autoTrigger={true}
+      />
 
       <SetupChecklist projectId={brandId} />
 

@@ -1,0 +1,1 @@
+export { BrandOverviewPanel } from './BrandOverviewPanel';

@@ -62,6 +62,11 @@ export type Database = {
         Insert: Omit<CompetitorDomain, 'id' | 'added_at'>
         Update: Partial<Omit<CompetitorDomain, 'id'>>
       }
+      brand_overviews: {
+        Row: BrandOverview
+        Insert: Omit<BrandOverview, 'id' | 'created_at' | 'updated_at'>
+        Update: Partial<Omit<BrandOverview, 'id'>>
+      }
     }
   }
 }
@@ -607,6 +612,35 @@ export interface CrawlStats {
   sitemapFound: boolean
   duration: number
   pageTypes: Record<string, number>
+}
+
+// ==========================================
+// Brand Overview Types (Auto-generated)
+// ==========================================
+
+export type BrandOverviewStatus = 'PENDING' | 'RUNNING' | 'COMPLETE' | 'FAILED'
+
+export interface BrandOverview {
+  id: string
+  project_id: string
+  source_url: string
+  status: BrandOverviewStatus
+  summary_md: string | null
+  raw_json: ExtendedBrandBible | null
+  warnings: string | null
+  error: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface BrandOverviewResponse {
+  success: boolean
+  data?: BrandOverview
+  error?: string
+}
+
+export interface GenerateBrandOverviewRequest {
+  force?: boolean // Allow regeneration even if COMPLETE
 }
 
 // ==========================================
